@@ -24,14 +24,24 @@
   - Implement basic error handling for download operations
   - _Requirements: 1.1, 1.3, 6.2_
 
-- [ ] 3. Implement PDF parsing and data extraction
+- [x] 3. Implement PDF parsing and data extraction
+
+
+
+
+
   - Create extract_stock_data() method to parse PDF and extract OHLCV data for all stocks
   - Use pdfplumber or PyPDF2 to parse PDF content and extract tabular data
   - Handle data format validation and type conversion from PDF text
   - Structure extracted data into pandas DataFrame with proper column names
   - _Requirements: 1.1, 1.2_
 
-- [ ] 4. Create data storage system with CSV file management
+- [x] 4. Create data storage system with CSV file management
+
+
+
+
+
   - Implement DataStorage class for CSV file operations
   - Create save_stock_data() method to append new data without overwriting history
   - Implement load_stock_data() method to read historical data from CSV files

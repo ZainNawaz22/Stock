@@ -7,8 +7,11 @@ import requests
 import os
 import time
 import logging
+import re
+import pandas as pd
+import pdfplumber
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from .config_loader import get_section, get_value
 
 
@@ -24,6 +27,11 @@ class NetworkError(PSXDataAcquisitionError):
 
 class PDFDownloadError(PSXDataAcquisitionError):
     """Raised when PDF download fails"""
+    pass
+
+
+class PDFParsingError(PSXDataAcquisitionError):
+    """Raised when PDF parsing fails"""
     pass
 
 
@@ -253,3 +261,260 @@ class PSXDataAcquisition:
         except Exception as e:
             self.logger.error(f"Error verifying PDF: {e}")
             return False
+    
+    def _parse_stock_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse a single stock data line from PDF text
+        
+        Args:
+            line (str): Raw text line from PDF
+            
+        Returns:
+            Optional[Dict[str, Any]]: Parsed stock data or None if parsing fails
+        """
+        try:
+            # Clean the line
+            line = line.strip()
+            if not line:
+                return None
+            
+            # Split by whitespace and handle multi-word company names
+            parts = line.split()
+            if len(parts) < 8:  # Need at least symbol + 7 numeric values
+                return None
+            
+            # Extract numeric values from the end (last 7 values)
+            # Format: Turnover Prv.Rate Open Rate Highest Lowest Last Rate Diff.
+            try:
+                diff = float(parts[-1])
+                last_rate = float(parts[-2])
+                lowest = float(parts[-3])
+                highest = float(parts[-4])
+                open_rate = float(parts[-5])
+                prev_rate = float(parts[-6])
+                turnover = int(parts[-7])
+            except (ValueError, IndexError):
+                return None
+            
+            # Everything before the numeric values is the company name and symbol
+            name_parts = parts[:-7]
+            if not name_parts:
+                return None
+            
+            # First part is typically the symbol, rest is company name
+            symbol = name_parts[0]
+            company_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else name_parts[0]
+            
+            # Validate that we have reasonable values
+            if turnover < 0 or last_rate <= 0 or highest <= 0 or lowest <= 0 or open_rate <= 0:
+                return None
+            
+            return {
+                'Symbol': symbol,
+                'Company_Name': company_name,
+                'Open': open_rate,
+                'High': highest,
+                'Low': lowest,
+                'Close': last_rate,
+                'Volume': turnover,
+                'Previous_Close': prev_rate,
+                'Change': diff
+            }
+            
+        except Exception as e:
+            self.logger.debug(f"Failed to parse line: {line} - Error: {e}")
+            return None
+    
+    def _is_data_line(self, line: str) -> bool:
+        """
+        Check if a line contains stock data
+        
+        Args:
+            line (str): Text line to check
+            
+        Returns:
+            bool: True if line contains stock data
+        """
+        line = line.strip()
+        
+        # Skip empty lines
+        if not line:
+            return False
+        
+        # Skip section headers
+        if line.startswith('***') and line.endswith('***'):
+            return False
+        
+        # Skip document headers
+        skip_patterns = [
+            'Pakistan Stock',
+            'CLOSING RATE',
+            'From :',
+            'PageNo:',
+            'Friday',
+            'Monday',
+            'Tuesday', 
+            'Wednesday',
+            'Thursday',
+            'Saturday',
+            'Sunday',
+            'Flu No:',
+            'P. Vol.:',
+            'C. Vol.:',
+            'Total:',
+            'Company Name'
+        ]
+        
+        for pattern in skip_patterns:
+            if line.startswith(pattern):
+                return False
+        
+        # Must contain numeric data
+        if not any(char.isdigit() for char in line):
+            return False
+        
+        # Should have enough parts to be a valid stock line
+        parts = line.split()
+        if len(parts) < 8:
+            return False
+        
+        return True
+    
+    def extract_stock_data(self, pdf_path: str) -> pd.DataFrame:
+        """
+        Extract OHLCV data for all stocks from the PDF file
+        
+        Args:
+            pdf_path (str): Path to the PDF file
+            
+        Returns:
+            pd.DataFrame: DataFrame containing stock data with columns:
+                         Symbol, Company_Name, Open, High, Low, Close, Volume, Previous_Close, Change
+                         
+        Raises:
+            PDFParsingError: If PDF parsing fails
+            FileNotFoundError: If PDF file doesn't exist
+        """
+        if not os.path.exists(pdf_path):
+            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+        
+        try:
+            self.logger.info(f"Extracting stock data from: {pdf_path}")
+            
+            stock_data = []
+            
+            with pdfplumber.open(pdf_path) as pdf:
+                self.logger.info(f"Processing {len(pdf.pages)} pages")
+                
+                for page_num, page in enumerate(pdf.pages):
+                    try:
+                        # Extract text from page
+                        text = page.extract_text()
+                        if not text:
+                            self.logger.warning(f"No text found on page {page_num + 1}")
+                            continue
+                        
+                        # Split into lines
+                        lines = text.split('\n')
+                        
+                        # Process each line
+                        for line_num, line in enumerate(lines):
+                            if self._is_data_line(line):
+                                parsed_data = self._parse_stock_line(line)
+                                if parsed_data:
+                                    stock_data.append(parsed_data)
+                                else:
+                                    self.logger.debug(f"Failed to parse line {line_num + 1} on page {page_num + 1}: {line}")
+                        
+                        self.logger.debug(f"Processed page {page_num + 1}: found {len([l for l in lines if self._is_data_line(l)])} data lines")
+                        
+                    except Exception as e:
+                        self.logger.error(f"Error processing page {page_num + 1}: {e}")
+                        continue
+            
+            if not stock_data:
+                raise PDFParsingError("No stock data found in PDF")
+            
+            # Create DataFrame
+            df = pd.DataFrame(stock_data)
+            
+            # Data validation and type conversion
+            numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'Previous_Close', 'Change']
+            for col in numeric_columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # Remove rows with invalid data
+            initial_count = len(df)
+            df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+            final_count = len(df)
+            
+            if initial_count != final_count:
+                self.logger.warning(f"Removed {initial_count - final_count} rows with invalid data")
+            
+            # Additional data validation
+            # Remove rows where High < Low or Close <= 0
+            df = df[
+                (df['High'] >= df['Low']) & 
+                (df['Close'] > 0) & 
+                (df['Open'] > 0) & 
+                (df['Volume'] >= 0)
+            ]
+            
+            # Add date column
+            # Extract date from PDF filename or use current date
+            try:
+                filename = os.path.basename(pdf_path)
+                date_match = re.search(r'(\d{4}-\d{2}-\d{2})', filename)
+                if date_match:
+                    date_str = date_match.group(1)
+                    df['Date'] = pd.to_datetime(date_str)
+                else:
+                    df['Date'] = pd.to_datetime('today').normalize()
+            except Exception:
+                df['Date'] = pd.to_datetime('today').normalize()
+            
+            # Reorder columns
+            column_order = ['Date', 'Symbol', 'Company_Name', 'Open', 'High', 'Low', 'Close', 'Volume', 'Previous_Close', 'Change']
+            df = df[column_order]
+            
+            # Sort by symbol
+            df = df.sort_values('Symbol').reset_index(drop=True)
+            
+            self.logger.info(f"Successfully extracted data for {len(df)} stocks")
+            
+            return df
+            
+        except Exception as e:
+            if isinstance(e, (PDFParsingError, FileNotFoundError)):
+                raise
+            else:
+                raise PDFParsingError(f"Error extracting stock data from PDF: {e}")
+    
+    def get_all_stock_data(self, date: Optional[str] = None) -> pd.DataFrame:
+        """
+        Download PDF and extract all stock data for a given date
+        
+        Args:
+            date (str, optional): Date in YYYY-MM-DD format. Defaults to today.
+            
+        Returns:
+            pd.DataFrame: DataFrame containing all stock data
+            
+        Raises:
+            PDFDownloadError: If PDF download fails
+            PDFParsingError: If PDF parsing fails
+        """
+        try:
+            # Download the PDF
+            pdf_path = self.download_daily_pdf(date)
+            
+            # Extract stock data
+            stock_data = self.extract_stock_data(pdf_path)
+            
+            self.logger.info(f"Successfully processed {len(stock_data)} stocks for date {date or 'today'}")
+            
+            return stock_data
+            
+        except Exception as e:
+            self.logger.error(f"Error getting stock data: {e}")
+            raise
