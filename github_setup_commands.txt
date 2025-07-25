@@ -1,0 +1,14 @@
+# Commands to run after creating GitHub repository
+# Replace 'yourusername' with your actual GitHub username
+
+# Add the remote origin (replace yourusername with your GitHub username)
+git remote add origin https://github.com/yourusername/psx-ai-advisor.git
+
+# Rename the default branch to main (if needed)
+git branch -M main
+
+# Push to GitHub
+git push -u origin main
+
+# Verify the push worked
+git remote -v
