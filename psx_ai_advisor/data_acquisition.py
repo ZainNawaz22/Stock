@@ -38,7 +38,7 @@ class PSXDataAcquisition:
         self.performance_config = get_section('performance')
         
         self.base_url = self.config['psx_base_url']
-        self.downloads_endpoint = self.config['downloads_endpoint']
+        self.downloads_endpoint = "/download/closing_rates"  # Correct endpoint
         self.downloads_url = f"{self.base_url}{self.downloads_endpoint}"
         
         # Performance settings
@@ -66,11 +66,8 @@ class PSXDataAcquisition:
         if date is None:
             date = datetime.now().strftime('%Y-%m-%d')
         
-        # Convert date format for PSX URL structure
-        date_obj = datetime.strptime(date, '%Y-%m-%d')
-        formatted_date = date_obj.strftime('%d%m%Y')  # PSX uses DDMMYYYY format
-        
-        return f"KTrade{formatted_date}.pdf"
+        # PSX uses YYYY-MM-DD.pdf format for closing rates
+        return f"{date}.pdf"
     
     def _get_pdf_url(self, date: Optional[str] = None) -> str:
         """

@@ -1,7 +1,7 @@
 data_sources:
   psx_base_url: "https://dps.psx.com.pk"
-  downloads_endpoint: "/downloads"
-  pdf_filename_pattern: "closing_rates/{date}.pdf"
+  downloads_endpoint: "/download/closing_rates"
+  pdf_filename_pattern: "{date}.pdf"
 
 technical_indicators:
   sma_periods: [50, 200]
