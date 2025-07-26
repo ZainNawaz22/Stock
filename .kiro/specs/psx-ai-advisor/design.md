@@ -2,19 +2,25 @@
 
 ## Overview
 
-The PSX AI Advisor is a Python-based automated stock analysis system that downloads and extracts daily stock data from the Pakistan Stock Exchange (PSX) Closing Rate Summary PDF, calculates technical indicators, and uses machine learning to predict next-day price movements. The system is designed as a command-line tool that processes all stocks and provides actionable investment insights.
+The PSX AI Advisor is a comprehensive stock analysis system that downloads and extracts daily stock data from the Pakistan Stock Exchange (PSX) Closing Rate Summary PDF, calculates technical indicators, and uses machine learning to predict next-day price movements. The system features both a Python-based backend for data processing and a modern web interface that provides interactive dashboards, real-time charts, and intuitive visualization of stock analysis and predictions.
 
 ## Architecture
 
-The system follows a modular architecture with clear separation of concerns:
+The system follows a modern full-stack architecture with clear separation of concerns:
 
 ```
 PSX AI Advisor
-├── Data Acquisition Layer (PDF Download + Extraction)
-├── Data Processing Layer (Pandas + Technical Analysis)
-├── Storage Layer (CSV Files)
-├── Machine Learning Layer (Scikit-learn)
-└── Presentation Layer (Command Line Interface)
+├── Backend Services
+│   ├── Data Acquisition Layer (PDF Download + Extraction)
+│   ├── Data Processing Layer (Pandas + Technical Analysis)
+│   ├── Storage Layer (CSV Files + Database)
+│   ├── Machine Learning Layer (Scikit-learn)
+│   └── API Layer (FastAPI REST Endpoints)
+└── Frontend Application
+    ├── Web Interface (React/Vue.js)
+    ├── Chart Visualization (Chart.js/D3.js)
+    ├── Real-time Updates (WebSocket/SSE)
+    └── Responsive Design (CSS Framework)
 ```
 
 ### Key Architectural Principles
@@ -130,7 +136,82 @@ class MLPredictor:
     def load_model(self, symbol: str) -> Any
 ```
 
-### 5. Main Application Module (`main.py`)
+### 5. API Backend Module (`api_server.py`)
+
+**Purpose**: Provide REST API endpoints for web interface and orchestrate backend workflows
+
+**Key Functions**:
+- `get_stock_data(symbol, period)`: Return stock data with technical indicators
+- `get_predictions()`: Return current ML predictions for all stocks
+- `get_stock_list()`: Return available stock symbols
+- `run_daily_analysis()`: Execute complete daily workflow
+- `get_system_status()`: Return system health and last update info
+
+**Dependencies**:
+- FastAPI for REST API framework
+- Uvicorn for ASGI server
+- Pydantic for data validation
+
+**Interface**:
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI(title="PSX AI Advisor API")
+
+@app.get("/api/stocks")
+async def get_stocks() -> List[StockInfo]
+
+@app.get("/api/stocks/{symbol}/data")
+async def get_stock_data(symbol: str, days: int = 30) -> StockDataResponse
+
+@app.get("/api/predictions")
+async def get_predictions() -> List[PredictionResult]
+
+@app.post("/api/analysis/run")
+async def trigger_analysis() -> AnalysisStatus
+```
+
+### 6. Web Frontend Application
+
+**Purpose**: Provide interactive web interface for data visualization and analysis
+
+**Technology Stack**:
+- **Frontend Framework**: React.js with TypeScript
+- **Charting Library**: Chart.js or Recharts for interactive charts
+- **UI Framework**: Material-UI or Tailwind CSS for responsive design
+- **State Management**: React Context API or Redux Toolkit
+- **HTTP Client**: Axios for API communication
+
+**Key Components**:
+- `Dashboard`: Main overview with key metrics and predictions
+- `StockChart`: Interactive OHLCV charts with technical indicators
+- `PredictionPanel`: Display ML predictions with confidence scores
+- `StockList`: Filterable and sortable list of all stocks
+- `AnalysisControls`: Trigger manual analysis and system controls
+
+**Component Structure**:
+```
+src/
+├── components/
+│   ├── Dashboard/
+│   ├── StockChart/
+│   ├── PredictionPanel/
+│   ├── StockList/
+│   └── common/
+├── services/
+│   ├── api.ts
+│   └── websocket.ts
+├── hooks/
+│   ├── useStockData.ts
+│   └── usePredictions.ts
+├── types/
+│   └── api.ts
+└── utils/
+    └── formatters.ts
+```
+
+### 7. Main Application Module (`main.py`)
 
 **Purpose**: Orchestrate the entire workflow and provide CLI interface
 
@@ -173,6 +254,39 @@ PredictionResult = {
     'confidence': float,  # 0.0 to 1.0
     'model_accuracy': float,
     'last_updated': datetime
+}
+```
+
+### API Response Schemas
+
+```python
+# Stock data response for API
+StockDataResponse = {
+    'symbol': str,
+    'data': List[StockData],
+    'technical_indicators': Dict[str, List[float]],
+    'last_updated': datetime,
+    'total_records': int
+}
+
+# Stock info for listing
+StockInfo = {
+    'symbol': str,
+    'name': str,
+    'sector': str,
+    'current_price': float,
+    'change_percent': float,
+    'volume': int,
+    'last_updated': datetime
+}
+
+# System status response
+SystemStatus = {
+    'status': str,  # 'healthy', 'updating', 'error'
+    'last_analysis': datetime,
+    'total_stocks': int,
+    'predictions_available': int,
+    'system_uptime': str
 }
 ```
 
@@ -271,6 +385,20 @@ storage:
   backup_directory: "backups"
   max_file_age_days: 365
 
+api_server:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["http://localhost:3000", "http://localhost:5173"]
+  max_request_size: "10MB"
+  rate_limit: "100/minute"
+
+web_interface:
+  title: "PSX AI Advisor"
+  default_chart_period: 30
+  auto_refresh_interval: 300  # seconds
+  max_stocks_per_page: 50
+  theme: "light"
+
 logging:
   level: "INFO"
   file: "psx_advisor.log"
@@ -301,6 +429,65 @@ performance:
 - Include appropriate disclaimers about investment advice
 - Ensure personal use only as specified in requirements
 
+## Web Interface Architecture
+
+### Frontend Design Principles
+
+- **Responsive Design**: Mobile-first approach with breakpoints for tablet and desktop
+- **Performance**: Lazy loading, code splitting, and optimized bundle sizes
+- **Accessibility**: WCAG 2.1 compliance with proper ARIA labels and keyboard navigation
+- **User Experience**: Intuitive navigation, consistent design patterns, and fast interactions
+
+### Key UI Components
+
+#### Dashboard Layout
+```
+┌─────────────────────────────────────────────────────────┐
+│ Header (Logo, Navigation, System Status)                │
+├─────────────────────────────────────────────────────────┤
+│ Summary Cards (Total Stocks, Predictions, Performance) │
+├─────────────────────────────────────────────────────────┤
+│ ┌─────────────────┐ ┌─────────────────────────────────┐ │
+│ │ Top Predictions │ │ Market Overview Chart           │ │
+│ │ (UP/DOWN)       │ │ (Index Performance)             │ │
+│ └─────────────────┘ └─────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────┤
+│ Stock List with Search/Filter                           │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Stock Detail View
+```
+┌─────────────────────────────────────────────────────────┐
+│ Stock Header (Symbol, Name, Current Price, Change)     │
+├─────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Interactive OHLCV Chart with Technical Indicators   │ │
+│ │ (Candlestick + SMA + RSI + MACD)                   │ │
+│ └─────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────┤
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐ │
+│ │ Prediction  │ │ Technical   │ │ Historical          │ │
+│ │ Panel       │ │ Indicators  │ │ Performance         │ │
+│ └─────────────┘ └─────────────┘ └─────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Real-time Data Updates
+
+- **WebSocket Connection**: For live price updates and new predictions
+- **Polling Fallback**: HTTP polling every 5 minutes as backup
+- **Optimistic Updates**: Immediate UI updates with server confirmation
+- **Error Handling**: Graceful degradation when real-time connection fails
+
+### Chart Visualization Features
+
+- **Interactive Charts**: Zoom, pan, crosshair, and tooltip interactions
+- **Technical Indicators**: Toggle visibility of SMA, RSI, MACD overlays
+- **Time Periods**: 1D, 7D, 1M, 3M, 6M, 1Y view options
+- **Chart Types**: Candlestick, line, and area chart options
+- **Export**: Save charts as PNG/SVG for reports
+
 ## Performance Optimization
 
 ### Data Acquisition Performance
@@ -318,20 +505,43 @@ performance:
 - Implement data archiving for old records
 - Use efficient data types (float32 vs float64)
 
+### Web Interface Performance
+- **Frontend Optimization**: Code splitting, lazy loading, and tree shaking
+- **API Caching**: Redis cache for frequently requested data
+- **CDN Integration**: Static asset delivery through CDN
+- **Database Indexing**: Optimize queries for stock data retrieval
+- **Compression**: Gzip compression for API responses
+
 ## Deployment and Operations
 
 ### System Requirements
 - Python 3.8+
-- 2GB RAM minimum
-- 1GB disk space for data storage
+- Node.js 16+ (for frontend development)
+- 4GB RAM minimum (increased for web server)
+- 2GB disk space for data storage
 - Stable internet connection
 
 ### Installation Process
+
+#### Backend Setup
 1. Clone repository
-2. Install dependencies: `pip install -r requirements.txt` (includes requests, pandas, pdfplumber, pandas-ta, scikit-learn)
+2. Install Python dependencies: `pip install -r requirements.txt` (includes fastapi, uvicorn, requests, pandas, pdfplumber, pandas-ta, scikit-learn)
 3. Configure settings in `config.yaml`
 4. Run initial setup: `python setup.py`
-5. Execute daily analysis: `python main.py`
+5. Start API server: `uvicorn api_server:app --host 0.0.0.0 --port 8000`
+
+#### Frontend Setup
+1. Navigate to frontend directory: `cd frontend`
+2. Install dependencies: `npm install`
+3. Configure API endpoint in `.env` file
+4. Start development server: `npm run dev`
+5. Build for production: `npm run build`
+
+#### Production Deployment
+1. Use Docker containers for both backend and frontend
+2. Set up reverse proxy (Nginx) for serving static files
+3. Configure SSL certificates for HTTPS
+4. Set up process manager (PM2) for Node.js applications
 
 ### Monitoring and Maintenance
 - Daily log review for errors
@@ -342,11 +552,13 @@ performance:
 ## Future Enhancements
 
 ### Phase 2 Potential Features
-- Web dashboard for visualization
 - Email/SMS alerts for predictions
 - Portfolio tracking and recommendations
 - Integration with additional data sources
 - Advanced ML models (LSTM, Transformer)
+- Mobile application (React Native)
+- Advanced charting features (candlestick patterns, drawing tools)
+- User authentication and personalized dashboards
 
 ### Scalability Considerations
 - Database migration from CSV files
