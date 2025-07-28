@@ -62,12 +62,7 @@
   - Create add_all_indicators() method to append all indicators as new columns
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6. Create machine learning prediction system
-
-
-
-
-
+- [x] 6. Create machine learning prediction system
 
 
   - Implement MLPredictor class with Random Forest classifier

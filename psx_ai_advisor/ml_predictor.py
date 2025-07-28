@@ -1,1 +1,804 @@
-# Machine learning predictor module - placeholder for task 6
+"""
+Machine Learning Predictor Module for PSX AI Advisor
+
+This module implements machine learning prediction capabilities for stock price movements.
+It uses Random Forest classifier to predict next-day price movements (UP/DOWN) based on
+technical indicators and historical price data.
+"""
+
+import os
+import pickle
+import pandas as pd
+import numpy as np
+from typing import Dict, Any, Tuple, Optional, List
+import logging
+from datetime import datetime, timedelta
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, TimeSeriesSplit, cross_val_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
+from sklearn.preprocessing import StandardScaler
+import warnings
+
+from .config_loader import get_section, get_value
+from .data_storage import DataStorage
+from .technical_analysis import TechnicalAnalyzer
+
+# Suppress sklearn warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+
+class MLPredictorError(Exception):
+    """Base exception for ML predictor errors"""
+    pass
+
+
+class InsufficientDataError(MLPredictorError):
+    """Raised when there's insufficient data for model training"""
+    pass
+
+
+class ModelTrainingError(MLPredictorError):
+    """Raised when model training fails"""
+    pass
+
+
+class MLPredictor:
+    """
+    Machine Learning predictor for stock price movements using Random Forest classifier.
+    
+    This class handles feature preparation, model training, prediction generation,
+    and model persistence for individual stock symbols.
+    """
+    
+    def __init__(self, model_type: str = "RandomForest"):
+        """
+        Initialize the ML Predictor
+        
+        Args:
+            model_type (str): Type of ML model to use (default: "RandomForest")
+        """
+        # Load configuration
+        self.ml_config = get_section('machine_learning')
+        self.storage_config = get_section('storage')
+        
+        # ML parameters
+        self.model_type = model_type
+        self.min_training_samples = self.ml_config.get('min_training_samples', 200)
+        self.test_size = self.ml_config.get('test_size', 0.2)
+        self.random_state = self.ml_config.get('random_state', 42)
+        self.n_estimators = self.ml_config.get('n_estimators', 100)
+        
+        # Storage setup
+        self.data_dir = self.storage_config.get('data_directory', 'data')
+        self.models_dir = os.path.join(self.data_dir, 'models')
+        self.scalers_dir = os.path.join(self.data_dir, 'scalers')
+        
+        # Initialize components
+        self.data_storage = DataStorage()
+        self.technical_analyzer = TechnicalAnalyzer()
+        self.models = {}
+        self.scalers = {}
+        
+        # Ensure model directories exist
+        self._ensure_model_directories()
+        
+        # Feature columns for ML (technical indicators)
+        self.feature_columns = [
+            'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Histogram', 'ROC_12',
+            'SMA_20', 'SMA_50', 'BB_Upper', 'BB_Middle', 'BB_Lower',
+            'Volume_MA_20', 'OBV', 'Return_1d', 'Return_2d', 'Return_5d', 'Volatility_20d'
+        ]
+        
+        logger.info(f"MLPredictor initialized with {model_type} model")
+    
+    def _ensure_model_directories(self) -> None:
+        """Create model and scaler directories if they don't exist"""
+        try:
+            os.makedirs(self.models_dir, exist_ok=True)
+            os.makedirs(self.scalers_dir, exist_ok=True)
+            logger.debug(f"Ensured model directories exist: {self.models_dir}, {self.scalers_dir}")
+        except OSError as e:
+            raise MLPredictorError(f"Failed to create model directories: {e}")
+    
+    def _get_model_path(self, symbol: str) -> str:
+        """Get the file path for a model"""
+        clean_symbol = "".join(c for c in symbol if c.isalnum() or c in ('-', '_')).upper()
+        return os.path.join(self.models_dir, f"{clean_symbol}_model.pkl")
+    
+    def _get_scaler_path(self, symbol: str) -> str:
+        """Get the file path for a scaler"""
+        clean_symbol = "".join(c for c in symbol if c.isalnum() or c in ('-', '_')).upper()
+        return os.path.join(self.scalers_dir, f"{clean_symbol}_scaler.pkl")
+    
+    def prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Prepare feature matrix and target variable from stock data with technical indicators.
+        
+        Args:
+            df (pd.DataFrame): DataFrame with OHLCV data and technical indicators
+            
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Feature matrix (X) and target variable (y)
+            
+        Raises:
+            ValueError: If required columns are missing or data is insufficient
+            InsufficientDataError: If not enough data for feature preparation
+        """
+        if df.empty:
+            raise ValueError("Empty DataFrame provided for feature preparation")
+        
+        # Check if we have technical indicators
+        missing_indicators = [col for col in self.feature_columns if col not in df.columns]
+        if missing_indicators:
+            logger.info("Missing technical indicators, calculating them...")
+            df = self.technical_analyzer.add_all_indicators(df)
+            
+            # Check again after calculation
+            missing_indicators = [col for col in self.feature_columns if col not in df.columns]
+            if missing_indicators:
+                raise ValueError(f"Missing required technical indicators: {missing_indicators}")
+        
+        # Check for Close column to create target variable
+        if 'Close' not in df.columns:
+            raise ValueError("Close column is required for target variable creation")
+        
+        try:
+            # Create target variable: next-day price movement (UP=1, DOWN=0)
+            df = df.copy()
+            df['Next_Close'] = df['Close'].shift(-1)  # Next day's closing price
+            df['Target'] = (df['Next_Close'] > df['Close']).astype(int)  # 1 if UP, 0 if DOWN
+            
+            # Remove rows where we can't calculate target (last row and any NaN)
+            df = df.dropna(subset=['Target', 'Next_Close'])
+            
+            if len(df) < self.min_training_samples:
+                raise InsufficientDataError(
+                    f"Insufficient data for training. Need {self.min_training_samples} samples, got {len(df)}"
+                )
+            
+            # Prepare feature matrix
+            X = df[self.feature_columns].values
+            y = df['Target'].values
+            
+            # Check for any remaining NaN values in features
+            if np.isnan(X).any():
+                logger.warning("NaN values found in features, applying forward fill")
+                feature_df = df[self.feature_columns].ffill().bfill()
+                X = feature_df.values
+                
+                # If still NaN, remove those rows
+                nan_mask = np.isnan(X).any(axis=1)
+                if nan_mask.any():
+                    logger.warning(f"Removing {nan_mask.sum()} rows with NaN values")
+                    X = X[~nan_mask]
+                    y = y[~nan_mask]
+            
+            if len(X) < self.min_training_samples:
+                raise InsufficientDataError(
+                    f"After cleaning, insufficient data for training. Need {self.min_training_samples} samples, got {len(X)}"
+                )
+            
+            logger.info(f"Prepared features: {X.shape[0]} samples, {X.shape[1]} features")
+            logger.info(f"Target distribution - UP: {np.sum(y)}, DOWN: {len(y) - np.sum(y)}")
+            
+            return X, y
+            
+        except Exception as e:
+            if isinstance(e, (InsufficientDataError, ValueError)):
+                raise
+            else:
+                raise MLPredictorError(f"Error preparing features: {e}")
+    
+    def train_model(self, symbol: str) -> Dict[str, Any]:
+        """
+        Train a Random Forest model for a specific stock symbol.
+        
+        Args:
+            symbol (str): Stock symbol to train model for
+            
+        Returns:
+            Dict[str, Any]: Training results including metrics and model info
+            
+        Raises:
+            InsufficientDataError: If not enough data for training
+            ModelTrainingError: If model training fails
+        """
+        try:
+            logger.info(f"Starting model training for {symbol}")
+            
+            # Load stock data
+            try:
+                stock_data = self.data_storage.load_stock_data(symbol)
+            except FileNotFoundError:
+                raise InsufficientDataError(f"No data file found for symbol: {symbol}")
+            
+            if stock_data.empty:
+                raise InsufficientDataError(f"No data available for symbol: {symbol}")
+            
+            # Prepare features and target
+            X, y = self.prepare_features(stock_data)
+            
+            # Split data into training and testing sets
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=self.test_size, random_state=self.random_state, stratify=y
+            )
+            
+            # Scale features
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train)
+            X_test_scaled = scaler.transform(X_test)
+            
+            # Train Random Forest model
+            model = RandomForestClassifier(
+                n_estimators=self.n_estimators,
+                random_state=self.random_state,
+                max_depth=10,
+                min_samples_split=5,
+                min_samples_leaf=2,
+                n_jobs=-1
+            )
+            
+            model.fit(X_train_scaled, y_train)
+            
+            # Make predictions on test set
+            y_pred = model.predict(X_test_scaled)
+            y_pred_proba = model.predict_proba(X_test_scaled)
+            
+            # Calculate metrics
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+            recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+            
+            # Feature importance
+            feature_importance = dict(zip(self.feature_columns, model.feature_importances_))
+            top_features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:5]
+            
+            # Store model and scaler
+            self.models[symbol] = model
+            self.scalers[symbol] = scaler
+            
+            # Save model and scaler to disk
+            self.save_model(symbol, model)
+            self.save_scaler(symbol, scaler)
+            
+            # Prepare training results
+            training_results = {
+                'symbol': symbol,
+                'training_date': datetime.now().isoformat(),
+                'model_type': self.model_type,
+                'training_samples': len(X_train),
+                'test_samples': len(X_test),
+                'total_samples': len(X),
+                'accuracy': float(accuracy),
+                'precision': float(precision),
+                'recall': float(recall),
+                'feature_count': len(self.feature_columns),
+                'top_features': top_features,
+                'class_distribution': {
+                    'UP': int(np.sum(y)),
+                    'DOWN': int(len(y) - np.sum(y))
+                },
+                'model_parameters': {
+                    'n_estimators': self.n_estimators,
+                    'max_depth': 10,
+                    'min_samples_split': 5,
+                    'min_samples_leaf': 2
+                }
+            }
+            
+            logger.info(f"Model training completed for {symbol}")
+            logger.info(f"Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+            logger.info(f"Top features: {[f[0] for f in top_features]}")
+            
+            return training_results
+            
+        except (InsufficientDataError, ValueError) as e:
+            raise InsufficientDataError(f"Training failed for {symbol}: {e}")
+        except Exception as e:
+            raise ModelTrainingError(f"Model training failed for {symbol}: {e}")
+    
+    def predict_movement(self, symbol: str) -> Dict[str, Any]:
+        """
+        Predict next-day price movement for a specific stock symbol.
+        
+        Args:
+            symbol (str): Stock symbol to predict for
+            
+        Returns:
+            Dict[str, Any]: Prediction results including direction, confidence, and metadata
+            
+        Raises:
+            MLPredictorError: If prediction fails
+        """
+        try:
+            logger.info(f"Generating prediction for {symbol}")
+            
+            # Load or train model if not available
+            if symbol not in self.models:
+                model_path = self._get_model_path(symbol)
+                scaler_path = self._get_scaler_path(symbol)
+                
+                if os.path.exists(model_path) and os.path.exists(scaler_path):
+                    # Load existing model and scaler
+                    self.models[symbol] = self.load_model(symbol)
+                    self.scalers[symbol] = self.load_scaler(symbol)
+                    logger.info(f"Loaded existing model for {symbol}")
+                else:
+                    # Train new model
+                    logger.info(f"No existing model found for {symbol}, training new model...")
+                    training_results = self.train_model(symbol)
+                    logger.info(f"Model training completed for {symbol}")
+            
+            # Load latest stock data
+            try:
+                stock_data = self.data_storage.load_stock_data(symbol)
+            except FileNotFoundError:
+                raise MLPredictorError(f"No data file found for symbol: {symbol}")
+            
+            if stock_data.empty:
+                raise MLPredictorError(f"No data available for symbol: {symbol}")
+            
+            # Add technical indicators if not present
+            missing_indicators = [col for col in self.feature_columns if col not in stock_data.columns]
+            if missing_indicators:
+                stock_data = self.technical_analyzer.add_all_indicators(stock_data)
+            
+            # Get the latest data point for prediction
+            latest_data = stock_data.iloc[-1:][self.feature_columns]
+            
+            # Check for missing values
+            if latest_data.isnull().any().any():
+                logger.warning("Missing values in latest data, applying forward fill")
+                latest_data = latest_data.ffill().bfill()
+                
+                if latest_data.isnull().any().any():
+                    raise MLPredictorError(f"Unable to handle missing values in latest data for {symbol}")
+            
+            # Scale features
+            model = self.models[symbol]
+            scaler = self.scalers[symbol]
+            
+            X_latest = scaler.transform(latest_data.values)
+            
+            # Make prediction
+            prediction_proba = model.predict_proba(X_latest)[0]
+            prediction_class = model.predict(X_latest)[0]
+            
+            # Determine prediction direction and confidence
+            prediction_direction = "UP" if prediction_class == 1 else "DOWN"
+            confidence = float(max(prediction_proba))
+            
+            # Get current price and other metadata
+            current_price = float(stock_data['Close'].iloc[-1])
+            current_date = stock_data['Date'].iloc[-1] if 'Date' in stock_data.columns else datetime.now()
+            
+            # Calculate model accuracy from recent predictions (if available)
+            model_accuracy = self._calculate_recent_accuracy(symbol, stock_data)
+            
+            # Prepare prediction result
+            prediction_result = {
+                'symbol': symbol,
+                'prediction': prediction_direction,
+                'confidence': confidence,
+                'prediction_probabilities': {
+                    'DOWN': float(prediction_proba[0]),
+                    'UP': float(prediction_proba[1])
+                },
+                'current_price': current_price,
+                'prediction_date': datetime.now().isoformat(),
+                'data_date': current_date.isoformat() if hasattr(current_date, 'isoformat') else str(current_date),
+                'model_accuracy': model_accuracy,
+                'model_type': self.model_type,
+                'feature_count': len(self.feature_columns)
+            }
+            
+            logger.info(f"Prediction for {symbol}: {prediction_direction} (confidence: {confidence:.4f})")
+            
+            return prediction_result
+            
+        except Exception as e:
+            if isinstance(e, MLPredictorError):
+                raise
+            else:
+                raise MLPredictorError(f"Prediction failed for {symbol}: {e}")
+    
+    def _calculate_recent_accuracy(self, symbol: str, stock_data: pd.DataFrame, days: int = 30) -> Optional[float]:
+        """
+        Calculate model accuracy on recent data.
+        
+        Args:
+            symbol (str): Stock symbol
+            stock_data (pd.DataFrame): Stock data with indicators
+            days (int): Number of recent days to evaluate
+            
+        Returns:
+            Optional[float]: Recent accuracy score or None if cannot calculate
+        """
+        try:
+            if len(stock_data) < days + 1:
+                return None
+            
+            # Get recent data
+            recent_data = stock_data.tail(days + 1).copy()
+            
+            # Prepare features and targets for recent data
+            X_recent, y_recent = self.prepare_features(recent_data)
+            
+            if len(X_recent) < 10:  # Need at least 10 samples for meaningful accuracy
+                return None
+            
+            # Scale features
+            scaler = self.scalers[symbol]
+            X_recent_scaled = scaler.transform(X_recent)
+            
+            # Make predictions
+            model = self.models[symbol]
+            y_pred_recent = model.predict(X_recent_scaled)
+            
+            # Calculate accuracy
+            accuracy = accuracy_score(y_recent, y_pred_recent)
+            
+            return float(accuracy)
+            
+        except Exception as e:
+            logger.warning(f"Could not calculate recent accuracy for {symbol}: {e}")
+            return None
+    
+    def save_model(self, symbol: str, model: Any) -> bool:
+        """
+        Save trained model to disk.
+        
+        Args:
+            symbol (str): Stock symbol
+            model: Trained model object
+            
+        Returns:
+            bool: True if save successful
+        """
+        try:
+            model_path = self._get_model_path(symbol)
+            
+            with open(model_path, 'wb') as f:
+                pickle.dump(model, f)
+            
+            logger.debug(f"Model saved for {symbol} at {model_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving model for {symbol}: {e}")
+            return False
+    
+    def load_model(self, symbol: str) -> Any:
+        """
+        Load trained model from disk.
+        
+        Args:
+            symbol (str): Stock symbol
+            
+        Returns:
+            Any: Loaded model object
+            
+        Raises:
+            FileNotFoundError: If model file doesn't exist
+            MLPredictorError: If loading fails
+        """
+        try:
+            model_path = self._get_model_path(symbol)
+            
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"No model file found for symbol: {symbol}")
+            
+            with open(model_path, 'rb') as f:
+                model = pickle.load(f)
+            
+            logger.debug(f"Model loaded for {symbol} from {model_path}")
+            return model
+            
+        except FileNotFoundError:
+            raise
+        except Exception as e:
+            raise MLPredictorError(f"Error loading model for {symbol}: {e}")
+    
+    def save_scaler(self, symbol: str, scaler: Any) -> bool:
+        """
+        Save feature scaler to disk.
+        
+        Args:
+            symbol (str): Stock symbol
+            scaler: Trained scaler object
+            
+        Returns:
+            bool: True if save successful
+        """
+        try:
+            scaler_path = self._get_scaler_path(symbol)
+            
+            with open(scaler_path, 'wb') as f:
+                pickle.dump(scaler, f)
+            
+            logger.debug(f"Scaler saved for {symbol} at {scaler_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving scaler for {symbol}: {e}")
+            return False
+    
+    def load_scaler(self, symbol: str) -> Any:
+        """
+        Load feature scaler from disk.
+        
+        Args:
+            symbol (str): Stock symbol
+            
+        Returns:
+            Any: Loaded scaler object
+            
+        Raises:
+            FileNotFoundError: If scaler file doesn't exist
+            MLPredictorError: If loading fails
+        """
+        try:
+            scaler_path = self._get_scaler_path(symbol)
+            
+            if not os.path.exists(scaler_path):
+                raise FileNotFoundError(f"No scaler file found for symbol: {symbol}")
+            
+            with open(scaler_path, 'rb') as f:
+                scaler = pickle.load(f)
+            
+            logger.debug(f"Scaler loaded for {symbol} from {scaler_path}")
+            return scaler
+            
+        except FileNotFoundError:
+            raise
+        except Exception as e:
+            raise MLPredictorError(f"Error loading scaler for {symbol}: {e}")
+    
+    def get_model_info(self, symbol: str) -> Dict[str, Any]:
+        """
+        Get information about a trained model.
+        
+        Args:
+            symbol (str): Stock symbol
+            
+        Returns:
+            Dict[str, Any]: Model information
+        """
+        try:
+            model_path = self._get_model_path(symbol)
+            scaler_path = self._get_scaler_path(symbol)
+            
+            info = {
+                'symbol': symbol,
+                'model_exists': os.path.exists(model_path),
+                'scaler_exists': os.path.exists(scaler_path),
+                'model_type': self.model_type,
+                'feature_count': len(self.feature_columns),
+                'features': self.feature_columns
+            }
+            
+            if info['model_exists']:
+                # Get file modification time
+                model_mtime = datetime.fromtimestamp(os.path.getmtime(model_path))
+                info['model_last_updated'] = model_mtime.isoformat()
+                info['model_size_bytes'] = os.path.getsize(model_path)
+                
+                # Load model to get additional info
+                try:
+                    model = self.load_model(symbol)
+                    if hasattr(model, 'n_estimators'):
+                        info['n_estimators'] = model.n_estimators
+                    if hasattr(model, 'feature_importances_'):
+                        feature_importance = dict(zip(self.feature_columns, model.feature_importances_))
+                        info['top_features'] = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:5]
+                except Exception as e:
+                    logger.warning(f"Could not load model details for {symbol}: {e}")
+            
+            return info
+            
+        except Exception as e:
+            logger.error(f"Error getting model info for {symbol}: {e}")
+            return {'symbol': symbol, 'error': str(e)}
+    
+    def get_available_models(self) -> List[str]:
+        """
+        Get list of symbols that have trained models.
+        
+        Returns:
+            List[str]: List of symbols with available models
+        """
+        try:
+            models = []
+            
+            if not os.path.exists(self.models_dir):
+                return models
+            
+            for filename in os.listdir(self.models_dir):
+                if filename.endswith('_model.pkl'):
+                    # Extract symbol from filename
+                    symbol = filename.replace('_model.pkl', '')
+                    models.append(symbol)
+            
+            models.sort()
+            logger.debug(f"Found {len(models)} trained models")
+            
+            return models
+            
+        except Exception as e:
+            logger.error(f"Error getting available models: {e}")
+            return []
+    
+    def evaluate_model(self, symbol: str) -> Dict[str, Any]:
+        """
+        Evaluate model performance on historical data.
+        
+        Args:
+            symbol (str): Stock symbol to evaluate
+            
+        Returns:
+            Dict[str, Any]: Evaluation metrics and performance data
+            
+        Raises:
+            MLPredictorError: If evaluation fails
+        """
+        try:
+            logger.info(f"Evaluating model for {symbol}")
+            
+            # Load model if not in memory
+            if symbol not in self.models:
+                model_path = self._get_model_path(symbol)
+                scaler_path = self._get_scaler_path(symbol)
+                
+                if not (os.path.exists(model_path) and os.path.exists(scaler_path)):
+                    raise MLPredictorError(f"No trained model found for {symbol}")
+                
+                self.models[symbol] = self.load_model(symbol)
+                self.scalers[symbol] = self.load_scaler(symbol)
+            
+            # Load stock data
+            try:
+                stock_data = self.data_storage.load_stock_data(symbol)
+            except FileNotFoundError:
+                raise MLPredictorError(f"No data file found for symbol: {symbol}")
+            
+            if stock_data.empty:
+                raise MLPredictorError(f"No data available for symbol: {symbol}")
+            
+            # Prepare features and target
+            X, y = self.prepare_features(stock_data)
+            
+            # Scale features
+            model = self.models[symbol]
+            scaler = self.scalers[symbol]
+            X_scaled = scaler.transform(X)
+            
+            # Make predictions
+            y_pred = model.predict(X_scaled)
+            y_pred_proba = model.predict_proba(X_scaled)
+            
+            # Calculate comprehensive metrics
+            accuracy = accuracy_score(y, y_pred)
+            precision = precision_score(y, y_pred, average='weighted', zero_division=0)
+            recall = recall_score(y, y_pred, average='weighted', zero_division=0)
+            
+            # Calculate class-specific metrics
+            precision_up = precision_score(y, y_pred, pos_label=1, zero_division=0)
+            recall_up = recall_score(y, y_pred, pos_label=1, zero_division=0)
+            precision_down = precision_score(y, y_pred, pos_label=0, zero_division=0)
+            recall_down = recall_score(y, y_pred, pos_label=0, zero_division=0)
+            
+            # Feature importance
+            feature_importance = dict(zip(self.feature_columns, model.feature_importances_))
+            top_features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)
+            
+            # Calculate prediction confidence statistics
+            confidence_stats = {
+                'mean_confidence': float(np.mean(np.max(y_pred_proba, axis=1))),
+                'min_confidence': float(np.min(np.max(y_pred_proba, axis=1))),
+                'max_confidence': float(np.max(np.max(y_pred_proba, axis=1))),
+                'std_confidence': float(np.std(np.max(y_pred_proba, axis=1)))
+            }
+            
+            # Calculate recent performance (last 30 predictions)
+            recent_accuracy = None
+            if len(y) >= 30:
+                recent_y = y[-30:]
+                recent_pred = y_pred[-30:]
+                recent_accuracy = accuracy_score(recent_y, recent_pred)
+            
+            # Prepare evaluation results
+            evaluation_results = {
+                'symbol': symbol,
+                'evaluation_date': datetime.now().isoformat(),
+                'total_samples': len(y),
+                'overall_metrics': {
+                    'accuracy': float(accuracy),
+                    'precision': float(precision),
+                    'recall': float(recall)
+                },
+                'class_metrics': {
+                    'UP': {
+                        'precision': float(precision_up),
+                        'recall': float(recall_up)
+                    },
+                    'DOWN': {
+                        'precision': float(precision_down),
+                        'recall': float(recall_down)
+                    }
+                },
+                'class_distribution': {
+                    'UP': int(np.sum(y)),
+                    'DOWN': int(len(y) - np.sum(y)),
+                    'UP_percentage': float(np.mean(y) * 100),
+                    'DOWN_percentage': float((1 - np.mean(y)) * 100)
+                },
+                'confidence_statistics': confidence_stats,
+                'recent_accuracy': float(recent_accuracy) if recent_accuracy is not None else None,
+                'feature_importance': {
+                    'top_10_features': top_features[:10],
+                    'all_features': feature_importance
+                },
+                'model_info': {
+                    'model_type': self.model_type,
+                    'n_estimators': self.n_estimators,
+                    'feature_count': len(self.feature_columns)
+                }
+            }
+            
+            logger.info(f"Model evaluation completed for {symbol}")
+            logger.info(f"Overall accuracy: {accuracy:.4f}")
+            logger.info(f"UP precision/recall: {precision_up:.4f}/{recall_up:.4f}")
+            logger.info(f"DOWN precision/recall: {precision_down:.4f}/{recall_down:.4f}")
+            
+            return evaluation_results
+            
+        except Exception as e:
+            if isinstance(e, MLPredictorError):
+                raise
+            else:
+                raise MLPredictorError(f"Model evaluation failed for {symbol}: {e}")
+
+    def cleanup_old_models(self, days_to_keep: int = 90) -> int:
+        """
+        Clean up old model files.
+        
+        Args:
+            days_to_keep (int): Number of days to keep model files
+            
+        Returns:
+            int: Number of files deleted
+        """
+        try:
+            cutoff_date = datetime.now() - timedelta(days=days_to_keep)
+            deleted_count = 0
+            
+            for directory in [self.models_dir, self.scalers_dir]:
+                if not os.path.exists(directory):
+                    continue
+                
+                for filename in os.listdir(directory):
+                    if filename.endswith('.pkl'):
+                        file_path = os.path.join(directory, filename)
+                        
+                        # Check file modification time
+                        file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+                        
+                        if file_mtime < cutoff_date:
+                            try:
+                                os.remove(file_path)
+                                deleted_count += 1
+                                logger.debug(f"Deleted old model file: {filename}")
+                            except Exception as e:
+                                logger.warning(f"Failed to delete model file {filename}: {e}")
+            
+            if deleted_count > 0:
+                logger.info(f"Cleaned up {deleted_count} old model files")
+            
+            return deleted_count
+            
+        except Exception as e:
+            logger.error(f"Error cleaning up old models: {e}")
+            return 0
