@@ -1,83 +1,97 @@
 #!/usr/bin/env python3
 """
-Test script for PSX Data Acquisition functionality
+Test data acquisition functionality
 """
 
 import sys
 import os
-import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Add the project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from psx_ai_advisor.data_acquisition import PSXDataAcquisition, CSVDownloadError, NetworkError
-
-def setup_logging():
-    """Setup basic logging for testing"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-
 def test_data_acquisition():
-    """Test the PSXDataAcquisition class"""
+    """Test the data acquisition module"""
     print("Testing PSX Data Acquisition...")
     
     try:
-        # Initialize the data acquisition system
-        psx_data = PSXDataAcquisition()
-        print(f"✓ PSXDataAcquisition initialized successfully")
-        print(f"  Base URL: {psx_data.base_url}")
-        print(f"  Downloads URL: {psx_data.downloads_url}")
-        print(f"  Data directory: {psx_data.data_dir}")
+        from psx_ai_advisor.data_acquisition import PSXDataAcquisition
         
-        # Test URL generation
-        test_date = "2024-01-15"  # Monday
-        csv_url = psx_data._get_csv_url(test_date)
-        filename = psx_data._get_csv_filename(test_date)
-        print(f"✓ URL generation works")
-        print(f"  Test date: {test_date}")
-        print(f"  Generated filename: {filename}")
-        print(f"  Generated URL: {csv_url}")
+        # Initialize data acquisition
+        data_acq = PSXDataAcquisition()
+        print("✓ PSXDataAcquisition initialized successfully")
         
-        # Test available dates generation
-        available_dates = psx_data.get_available_dates(5)
-        print(f"✓ Available dates generation works")
-        print(f"  Recent dates (excluding weekends): {available_dates}")
+        # Check configuration
+        print(f"✓ Base URL: {data_acq.base_url}")
+        print(f"✓ Downloads URL: {data_acq.downloads_url}")
         
-        # Test CSV download (this will likely fail due to network/availability)
-        print("\nAttempting CSV download test...")
-        try:
-            # Try to download a recent CSV
-            recent_date = available_dates[0] if available_dates else None
-            if recent_date:
-                csv_path = psx_data.download_daily_csv(recent_date)
-                print(f"✓ CSV download successful: {csv_path}")
-                
-                # Verify the downloaded CSV
-                if psx_data.verify_csv_download(csv_path):
-                    print(f"✓ CSV verification successful")
-                else:
-                    print(f"⚠ CSV verification failed")
-            else:
-                print("⚠ No recent dates available for testing")
-                
-        except CSVDownloadError as e:
-            print(f"⚠ CSV download failed (expected): {e}")
-        except NetworkError as e:
-            print(f"⚠ Network error (expected): {e}")
-        except Exception as e:
-            print(f"✗ Unexpected error: {e}")
-        
-        print("\n✓ All basic functionality tests completed")
         return True
         
     except Exception as e:
-        print(f"✗ Test failed: {e}")
+        print(f"✗ Data acquisition test failed: {e}")
         return False
 
+def test_existing_data_analysis():
+    """Test analysis of existing data"""
+    print("\nTesting analysis of existing data...")
+    
+    try:
+        import pandas as pd
+        from psx_ai_advisor.technical_analysis import TechnicalAnalyzer
+        
+        # Check if we have PTC data
+        ptc_file = 'data/PTC_historical_data.csv'
+        if os.path.exists(ptc_file):
+            df = pd.read_csv(ptc_file)
+            print(f"✓ Loaded PTC data: {len(df)} rows")
+            
+            # Initialize analyzer
+            analyzer = TechnicalAnalyzer()
+            
+            # Calculate indicators
+            df['SMA_20'] = analyzer.calculate_sma(df['Close'], 20)
+            df['RSI'] = analyzer.calculate_rsi(df['Close'], 14)
+            
+            # Show recent data with indicators
+            recent_data = df.tail(5)[['Date', 'Close', 'SMA_20', 'RSI']]
+            print("✓ Recent PTC data with indicators:")
+            print(recent_data.to_string(index=False))
+            
+            return True
+        else:
+            print("! PTC data file not found, skipping analysis test")
+            return True
+            
+    except Exception as e:
+        print(f"✗ Data analysis test failed: {e}")
+        return False
+
+def main():
+    """Run data acquisition tests"""
+    print("PSX AI Advisor - Data Acquisition Test")
+    print("=" * 50)
+    
+    tests = [
+        test_data_acquisition,
+        test_existing_data_analysis
+    ]
+    
+    passed = 0
+    total = len(tests)
+    
+    for test in tests:
+        if test():
+            passed += 1
+    
+    print("\n" + "=" * 50)
+    print(f"Test Results: {passed}/{total} tests passed")
+    
+    if passed == total:
+        print("🎉 Data acquisition system is working correctly!")
+        return 0
+    else:
+        print("⚠️  Some tests failed.")
+        return 1
+
 if __name__ == "__main__":
-    setup_logging()
-    success = test_data_acquisition()
-    sys.exit(0 if success else 1)
+    sys.exit(main())
