@@ -879,6 +879,475 @@ class MLPredictor:
             else:
                 raise MLPredictorError(f"Model evaluation failed for {symbol}: {e}")
 
+    def format_prediction_output(self, prediction_result: Dict[str, Any]) -> str:
+        """
+        Format prediction result as human-readable suggestion.
+        
+        Args:
+            prediction_result (Dict[str, Any]): Prediction result from predict_movement()
+            
+        Returns:
+            str: Human-readable prediction suggestion
+        """
+        try:
+            symbol = prediction_result['symbol']
+            prediction = prediction_result['prediction']
+            confidence = prediction_result['confidence']
+            current_price = prediction_result['current_price']
+            model_accuracy = prediction_result.get('model_accuracy')
+            prediction_date = prediction_result['prediction_date']
+            
+            # Parse prediction timestamp for display
+            try:
+                pred_datetime = datetime.fromisoformat(prediction_date.replace('Z', '+00:00'))
+                timestamp_str = pred_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            except:
+                timestamp_str = prediction_date
+            
+            # Create confidence level description
+            if confidence >= 0.8:
+                confidence_level = "High"
+            elif confidence >= 0.6:
+                confidence_level = "Medium"
+            else:
+                confidence_level = "Low"
+            
+            # Create accuracy description
+            accuracy_str = ""
+            if model_accuracy is not None:
+                accuracy_str = f" (Model Accuracy: {model_accuracy:.1%})"
+            
+            # Format the main prediction message
+            prediction_msg = f"Prediction for {symbol}: {prediction}"
+            
+            # Add detailed information
+            details = (
+                f"  Current Price: PKR {current_price:.2f}\n"
+                f"  Confidence: {confidence:.1%} ({confidence_level})\n"
+                f"  Prediction Time: {timestamp_str}{accuracy_str}"
+            )
+            
+            return f"{prediction_msg}\n{details}"
+            
+        except Exception as e:
+            logger.error(f"Error formatting prediction output: {e}")
+            return f"Prediction for {prediction_result.get('symbol', 'Unknown')}: {prediction_result.get('prediction', 'Unknown')}"
+    
+    def format_multiple_predictions(self, predictions: List[Dict[str, Any]], 
+                                  sort_by: str = 'confidence') -> str:
+        """
+        Format multiple prediction results as human-readable output.
+        
+        Args:
+            predictions (List[Dict[str, Any]]): List of prediction results
+            sort_by (str): Sort criteria ('confidence', 'symbol', 'accuracy')
+            
+        Returns:
+            str: Formatted output for multiple predictions
+        """
+        try:
+            if not predictions:
+                return "No predictions available."
+            
+            # Sort predictions based on criteria
+            if sort_by == 'confidence':
+                predictions = sorted(predictions, key=lambda x: x.get('confidence', 0), reverse=True)
+            elif sort_by == 'symbol':
+                predictions = sorted(predictions, key=lambda x: x.get('symbol', ''))
+            elif sort_by == 'accuracy':
+                predictions = sorted(predictions, key=lambda x: x.get('model_accuracy', 0) or 0, reverse=True)
+            
+            # Create header
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            header = f"PSX AI Advisor - Stock Predictions ({current_time})"
+            separator = "=" * len(header)
+            
+            # Format each prediction
+            formatted_predictions = []
+            up_count = 0
+            down_count = 0
+            
+            for pred in predictions:
+                formatted_pred = self.format_prediction_output(pred)
+                formatted_predictions.append(formatted_pred)
+                
+                # Count predictions
+                if pred.get('prediction') == 'UP':
+                    up_count += 1
+                else:
+                    down_count += 1
+            
+            # Create summary
+            total_predictions = len(predictions)
+            summary = (
+                f"\nSummary: {total_predictions} predictions generated\n"
+                f"  UP predictions: {up_count} ({up_count/total_predictions:.1%})\n"
+                f"  DOWN predictions: {down_count} ({down_count/total_predictions:.1%})\n"
+            )
+            
+            # Combine all parts
+            output_parts = [
+                separator,
+                header,
+                separator,
+                "\n" + "\n\n".join(formatted_predictions),
+                summary,
+                separator
+            ]
+            
+            return "\n".join(output_parts)
+            
+        except Exception as e:
+            logger.error(f"Error formatting multiple predictions: {e}")
+            return f"Error formatting predictions: {e}"
+    
+    def generate_prediction_summary(self, symbol: str) -> Dict[str, Any]:
+        """
+        Generate a comprehensive prediction summary for a stock symbol.
+        
+        Args:
+            symbol (str): Stock symbol to generate summary for
+            
+        Returns:
+            Dict[str, Any]: Comprehensive prediction summary
+        """
+        try:
+            # Get prediction
+            prediction_result = self.predict_movement(symbol)
+            
+            # Load stock data for additional context
+            stock_data = self.data_storage.load_stock_data(symbol)
+            
+            # Calculate additional metrics
+            recent_data = stock_data.tail(5)  # Last 5 days
+            price_change_5d = ((recent_data['Close'].iloc[-1] - recent_data['Close'].iloc[0]) / 
+                              recent_data['Close'].iloc[0] * 100) if len(recent_data) >= 2 else 0
+            
+            # Get technical indicator values
+            latest_indicators = {}
+            for indicator in ['RSI_14', 'MACD', 'SMA_50', 'SMA_200']:
+                if indicator in stock_data.columns:
+                    latest_indicators[indicator] = float(stock_data[indicator].iloc[-1])
+            
+            # Create comprehensive summary
+            summary = {
+                'basic_prediction': prediction_result,
+                'formatted_output': self.format_prediction_output(prediction_result),
+                'additional_context': {
+                    'price_change_5d_percent': float(price_change_5d),
+                    'latest_indicators': latest_indicators,
+                    'data_points_available': len(stock_data),
+                    'last_data_date': stock_data['Date'].iloc[-1].isoformat() if 'Date' in stock_data.columns else None
+                },
+                'recommendation_strength': self._get_recommendation_strength(prediction_result),
+                'risk_assessment': self._assess_prediction_risk(prediction_result, latest_indicators)
+            }
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"Error generating prediction summary for {symbol}: {e}")
+            raise MLPredictorError(f"Failed to generate prediction summary for {symbol}: {e}")
+    
+    def _get_recommendation_strength(self, prediction_result: Dict[str, Any]) -> str:
+        """
+        Determine recommendation strength based on confidence and accuracy.
+        
+        Args:
+            prediction_result (Dict[str, Any]): Prediction result
+            
+        Returns:
+            str: Recommendation strength (Strong, Moderate, Weak)
+        """
+        confidence = prediction_result.get('confidence', 0)
+        accuracy = prediction_result.get('model_accuracy', 0)
+        
+        # Combine confidence and accuracy for strength assessment
+        if confidence >= 0.8 and (accuracy is None or accuracy >= 0.6):
+            return "Strong"
+        elif confidence >= 0.65 and (accuracy is None or accuracy >= 0.55):
+            return "Moderate"
+        else:
+            return "Weak"
+    
+    def _assess_prediction_risk(self, prediction_result: Dict[str, Any], 
+                               indicators: Dict[str, float]) -> str:
+        """
+        Assess risk level of the prediction based on technical indicators.
+        
+        Args:
+            prediction_result (Dict[str, Any]): Prediction result
+            indicators (Dict[str, float]): Latest technical indicator values
+            
+        Returns:
+            str: Risk assessment (Low, Medium, High)
+        """
+        try:
+            risk_factors = 0
+            
+            # Check RSI for overbought/oversold conditions
+            rsi = indicators.get('RSI_14')
+            if rsi is not None:
+                if rsi > 70 or rsi < 30:  # Overbought or oversold
+                    risk_factors += 1
+            
+            # Check MACD for divergence signals
+            macd = indicators.get('MACD')
+            if macd is not None:
+                if abs(macd) > 10:  # Strong MACD signal (arbitrary threshold)
+                    risk_factors += 1
+            
+            # Check confidence level
+            confidence = prediction_result.get('confidence', 0)
+            if confidence < 0.6:
+                risk_factors += 1
+            
+            # Check model accuracy
+            accuracy = prediction_result.get('model_accuracy')
+            if accuracy is not None and accuracy < 0.55:
+                risk_factors += 1
+            
+            # Determine risk level
+            if risk_factors >= 3:
+                return "High"
+            elif risk_factors >= 2:
+                return "Medium"
+            else:
+                return "Low"
+                
+        except Exception as e:
+            logger.warning(f"Error assessing prediction risk: {e}")
+            return "Medium"  # Default to medium risk if assessment fails
+
+    def format_prediction_output(self, prediction_result: Dict[str, Any]) -> str:
+        """
+        Format prediction result as human-readable suggestion string.
+        
+        Args:
+            prediction_result (Dict[str, Any]): Prediction result from predict_movement()
+            
+        Returns:
+            str: Human-readable prediction string (e.g., "Prediction for ENGRO: UP")
+        """
+        try:
+            symbol = prediction_result['symbol']
+            prediction = prediction_result['prediction']
+            confidence = prediction_result['confidence']
+            current_price = prediction_result['current_price']
+            model_accuracy = prediction_result.get('model_accuracy')
+            
+            # Basic prediction format as specified in requirements
+            basic_format = f"Prediction for {symbol}: {prediction}"
+            
+            # Enhanced format with additional details
+            confidence_pct = confidence * 100
+            enhanced_format = f"Prediction for {symbol}: {prediction} (Confidence: {confidence_pct:.1f}%"
+            
+            if model_accuracy is not None:
+                accuracy_pct = model_accuracy * 100
+                enhanced_format += f", Model Accuracy: {accuracy_pct:.1f}%"
+            
+            enhanced_format += f", Current Price: {current_price:.2f})"
+            
+            return enhanced_format
+            
+        except Exception as e:
+            logger.error(f"Error formatting prediction output: {e}")
+            return f"Prediction for {prediction_result.get('symbol', 'UNKNOWN')}: ERROR"
+    
+    def format_prediction_summary(self, prediction_result: Dict[str, Any]) -> str:
+        """
+        Format prediction result as a detailed summary with timestamp.
+        
+        Args:
+            prediction_result (Dict[str, Any]): Prediction result from predict_movement()
+            
+        Returns:
+            str: Detailed prediction summary
+        """
+        try:
+            symbol = prediction_result['symbol']
+            prediction = prediction_result['prediction']
+            confidence = prediction_result['confidence']
+            current_price = prediction_result['current_price']
+            prediction_date = prediction_result['prediction_date']
+            data_date = prediction_result['data_date']
+            model_accuracy = prediction_result.get('model_accuracy')
+            
+            # Parse prediction timestamp
+            try:
+                pred_dt = datetime.fromisoformat(prediction_date.replace('Z', '+00:00'))
+                timestamp_str = pred_dt.strftime("%Y-%m-%d %H:%M:%S")
+            except:
+                timestamp_str = prediction_date
+            
+            # Create detailed summary
+            summary = f"""
+Stock Symbol: {symbol}
+Prediction: {prediction}
+Confidence: {confidence * 100:.1f}%
+Current Price: {current_price:.2f}
+Prediction Time: {timestamp_str}
+Data Date: {data_date}"""
+            
+            if model_accuracy is not None:
+                summary += f"\nModel Accuracy: {model_accuracy * 100:.1f}%"
+            
+            # Add probability breakdown
+            if 'prediction_probabilities' in prediction_result:
+                probs = prediction_result['prediction_probabilities']
+                summary += f"\nProbability UP: {probs.get('UP', 0) * 100:.1f}%"
+                summary += f"\nProbability DOWN: {probs.get('DOWN', 0) * 100:.1f}%"
+            
+            return summary.strip()
+            
+        except Exception as e:
+            logger.error(f"Error formatting prediction summary: {e}")
+            return f"Error formatting summary for {prediction_result.get('symbol', 'UNKNOWN')}"
+    
+    def format_multiple_predictions(self, predictions: List[Dict[str, Any]], 
+                                  format_type: str = "table") -> str:
+        """
+        Format multiple prediction results in a readable format.
+        
+        Args:
+            predictions (List[Dict[str, Any]]): List of prediction results
+            format_type (str): Format type - "table", "list", or "simple"
+            
+        Returns:
+            str: Formatted predictions output
+        """
+        try:
+            if not predictions:
+                return "No predictions available."
+            
+            if format_type == "simple":
+                # Simple list format as specified in requirements
+                lines = []
+                for pred in predictions:
+                    lines.append(self.format_prediction_output(pred))
+                return "\n".join(lines)
+            
+            elif format_type == "list":
+                # Detailed list format
+                lines = ["=== STOCK PREDICTIONS ==="]
+                for i, pred in enumerate(predictions, 1):
+                    lines.append(f"\n{i}. {self.format_prediction_output(pred)}")
+                return "\n".join(lines)
+            
+            elif format_type == "table":
+                # Table format
+                lines = ["=== STOCK PREDICTIONS TABLE ==="]
+                lines.append(f"{'Symbol':<10} {'Prediction':<10} {'Confidence':<12} {'Price':<10} {'Accuracy':<10}")
+                lines.append("-" * 62)
+                
+                for pred in predictions:
+                    symbol = pred['symbol']
+                    prediction = pred['prediction']
+                    confidence = f"{pred['confidence'] * 100:.1f}%"
+                    price = f"{pred['current_price']:.2f}"
+                    accuracy = f"{pred.get('model_accuracy', 0) * 100:.1f}%" if pred.get('model_accuracy') else "N/A"
+                    
+                    lines.append(f"{symbol:<10} {prediction:<10} {confidence:<12} {price:<10} {accuracy:<10}")
+                
+                return "\n".join(lines)
+            
+            else:
+                raise ValueError(f"Unknown format_type: {format_type}")
+                
+        except Exception as e:
+            logger.error(f"Error formatting multiple predictions: {e}")
+            return f"Error formatting predictions: {e}"
+    
+    def get_batch_predictions(self, symbols: List[str]) -> List[Dict[str, Any]]:
+        """
+        Generate predictions for multiple stock symbols.
+        
+        Args:
+            symbols (List[str]): List of stock symbols to predict
+            
+        Returns:
+            List[Dict[str, Any]]: List of prediction results
+        """
+        predictions = []
+        
+        for symbol in symbols:
+            try:
+                logger.info(f"Generating prediction for {symbol}")
+                prediction = self.predict_movement(symbol)
+                predictions.append(prediction)
+            except Exception as e:
+                logger.error(f"Failed to generate prediction for {symbol}: {e}")
+                # Add error result to maintain consistency
+                error_result = {
+                    'symbol': symbol,
+                    'prediction': 'ERROR',
+                    'confidence': 0.0,
+                    'current_price': 0.0,
+                    'prediction_date': datetime.now().isoformat(),
+                    'data_date': 'N/A',
+                    'model_accuracy': None,
+                    'error': str(e)
+                }
+                predictions.append(error_result)
+        
+        return predictions
+    
+    def display_predictions(self, symbols: List[str], format_type: str = "simple") -> None:
+        """
+        Generate and display predictions for multiple stocks in formatted output.
+        
+        Args:
+            symbols (List[str]): List of stock symbols to predict
+            format_type (str): Display format - "simple", "table", or "detailed"
+        """
+        try:
+            logger.info(f"Generating predictions for {len(symbols)} symbols")
+            
+            # Generate predictions
+            predictions = self.get_batch_predictions(symbols)
+            
+            # Filter out error results for display (but log them)
+            valid_predictions = []
+            error_count = 0
+            
+            for pred in predictions:
+                if pred['prediction'] == 'ERROR':
+                    error_count += 1
+                    logger.warning(f"Prediction failed for {pred['symbol']}: {pred.get('error', 'Unknown error')}")
+                else:
+                    valid_predictions.append(pred)
+            
+            # Display results
+            if valid_predictions:
+                if format_type == "detailed":
+                    print("\n" + "="*60)
+                    print("DETAILED STOCK PREDICTIONS")
+                    print("="*60)
+                    for pred in valid_predictions:
+                        print(self.format_prediction_summary(pred))
+                        print("-" * 40)
+                else:
+                    formatted_output = self.format_multiple_predictions(valid_predictions, format_type)
+                    print(formatted_output)
+            
+            # Display summary
+            print(f"\nSummary: {len(valid_predictions)} successful predictions, {error_count} errors")
+            
+            if valid_predictions:
+                # Calculate overall statistics
+                up_predictions = sum(1 for p in valid_predictions if p['prediction'] == 'UP')
+                down_predictions = len(valid_predictions) - up_predictions
+                avg_confidence = sum(p['confidence'] for p in valid_predictions) / len(valid_predictions)
+                
+                print(f"UP predictions: {up_predictions}, DOWN predictions: {down_predictions}")
+                print(f"Average confidence: {avg_confidence * 100:.1f}%")
+                print(f"Prediction timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+        except Exception as e:
+            logger.error(f"Error displaying predictions: {e}")
+            print(f"Error displaying predictions: {e}")
+
     def cleanup_old_models(self, days_to_keep: int = 90) -> int:
         """
         Clean up old model files.
