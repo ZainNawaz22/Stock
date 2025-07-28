@@ -1,7 +1,0 @@
-Date,Symbol,Company_Name,Open,High,Low,Close,Volume,Previous_Close,Change,SMA_50,SMA_200,RSI_14,MACD,MACD_Signal,MACD_Histogram
-2025-07-16 01:39:23.391879,ENGRO,Engro Corporation Limited,249.0,253.0,248.0,250.0,100000,250.0,0.0,,,,,,
-2025-07-17 01:39:23.391879,ENGRO,Engro Corporation Limited,251.5,255.5,250.5,252.5,105000,250.0,2.5,,,,,,
-2025-07-18 01:39:23.391879,ENGRO,Engro Corporation Limited,254.0,258.0,253.0,255.0,110000,252.5,2.5,,,,,,
-2025-07-19 01:39:23.391879,ENGRO,Engro Corporation Limited,256.5,260.5,255.5,257.5,115000,255.0,2.5,,,,,,
-2025-07-20 01:39:23.391879,ENGRO,Engro Corporation Limited,259.0,263.0,258.0,260.0,120000,257.5,2.5,,,,,,
-2025-07-21 01:39:23.391879,ENGRO,Engro Corporation Limited,262.0,265.0,260.0,263.5,125000,260.0,3.5,,,,,,

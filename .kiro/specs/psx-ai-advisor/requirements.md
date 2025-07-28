@@ -62,35 +62,7 @@ The PSX AI Advisor is a personal, automated data analysis tool designed to empow
 3. WHEN the process completes THEN the system SHALL display final predictions for all processed stocks
 4. WHEN an error occurs THEN the system SHALL provide clear error messages to help with troubleshooting
 
-### Requirement 6: Web User Interface
-
-**User Story:** As a data-driven investor, I want a beautiful web interface to visualize stock data, technical indicators, and predictions, so that I can easily analyze market trends and make informed decisions through an intuitive dashboard.
-
-#### Acceptance Criteria
-
-1. WHEN the user accesses the web interface THEN the system SHALL display a responsive dashboard with stock data visualization
-2. WHEN stock data is available THEN the web interface SHALL show interactive charts for OHLCV data with technical indicators overlaid
-3. WHEN predictions are generated THEN the web interface SHALL display current predictions with confidence scores and visual indicators
-4. WHEN the user selects a specific stock THEN the system SHALL show detailed analysis including historical performance and technical indicators
-5. WHEN the user views the dashboard THEN the interface SHALL update automatically with the latest data without requiring page refresh
-6. WHEN the user accesses the interface on mobile devices THEN the dashboard SHALL be fully responsive and functional
-7. WHEN multiple stocks are displayed THEN the interface SHALL provide filtering and sorting capabilities
-8. WHEN the user views charts THEN the system SHALL provide interactive features like zoom, pan, and hover tooltips
-
-### Requirement 7: API Backend for Web Interface
-
-**User Story:** As a data-driven investor, I want a robust API backend that serves stock data to the web interface, so that the UI can display real-time information efficiently.
-
-#### Acceptance Criteria
-
-1. WHEN the web interface requests stock data THEN the API SHALL return JSON-formatted OHLCV data with technical indicators
-2. WHEN the web interface requests predictions THEN the API SHALL return current ML predictions with confidence scores
-3. WHEN the API receives requests THEN it SHALL respond within 2 seconds for optimal user experience
-4. WHEN multiple users access the API THEN the system SHALL handle concurrent requests efficiently
-5. WHEN the API encounters errors THEN it SHALL return appropriate HTTP status codes with error messages
-6. WHEN stock data is updated THEN the API SHALL serve the latest information immediately
-
-### Requirement 8: System Reliability and Performance
+### Requirement 6: System Reliability and Performance
 
 **User Story:** As a data-driven investor, I want the system to be reliable and performant, so that I can depend on it for daily market analysis.
 
@@ -100,5 +72,3 @@ The PSX AI Advisor is a personal, automated data analysis tool designed to empow
 2. WHEN network errors occur THEN the system SHALL handle them gracefully with retry logic
 3. WHEN the system runs THEN the code SHALL be well-commented and organized into logical functions
 4. WHEN the system operates for 7 consecutive days THEN it SHALL successfully generate predictions without errors
-5. WHEN the web interface is accessed THEN the system SHALL serve pages within 3 seconds
-6. WHEN the web application runs THEN it SHALL handle at least 10 concurrent users without performance degradation
