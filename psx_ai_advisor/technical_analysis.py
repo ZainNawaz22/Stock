@@ -154,20 +154,198 @@ class TechnicalAnalyzer:
             logger.error(f"Error calculating MACD({fast},{slow},{signal}): {str(e)}")
             return pd.DataFrame(index=data.index, columns=['MACD', 'MACD_Signal', 'MACD_Histogram'])
     
+    def calculate_bollinger_bands(self, data: pd.Series, period: int = 20, std_dev: float = 2) -> pd.DataFrame:
+        """
+        Calculate Bollinger Bands for given data.
+        
+        Args:
+            data (pd.Series): Price data (typically closing prices)
+            period (int): Period for moving average and standard deviation (default: 20)
+            std_dev (float): Number of standard deviations for bands (default: 2)
+            
+        Returns:
+            pd.DataFrame: DataFrame with BB_Upper, BB_Middle, BB_Lower columns
+        """
+        if len(data) < period:
+            logger.warning(f"Insufficient data for Bollinger Bands. Need {period} points, got {len(data)}")
+            return pd.DataFrame(index=data.index, columns=['BB_Upper', 'BB_Middle', 'BB_Lower'])
+        
+        try:
+            # Calculate middle band (SMA)
+            middle_band = data.rolling(window=period, min_periods=period).mean()
+            
+            # Calculate standard deviation
+            rolling_std = data.rolling(window=period, min_periods=period).std()
+            
+            # Calculate upper and lower bands
+            upper_band = middle_band + (rolling_std * std_dev)
+            lower_band = middle_band - (rolling_std * std_dev)
+            
+            result_df = pd.DataFrame(index=data.index)
+            result_df['BB_Upper'] = upper_band
+            result_df['BB_Middle'] = middle_band
+            result_df['BB_Lower'] = lower_band
+            
+            logger.debug(f"Calculated Bollinger Bands({period},{std_dev}) for {len(data)} data points")
+            return result_df
+            
+        except Exception as e:
+            logger.error(f"Error calculating Bollinger Bands: {str(e)}")
+            return pd.DataFrame(index=data.index, columns=['BB_Upper', 'BB_Middle', 'BB_Lower'])
+    
+    def calculate_price_rate_of_change(self, data: pd.Series, period: int = 12) -> pd.Series:
+        """
+        Calculate Price Rate of Change (ROC) indicator.
+        
+        Args:
+            data (pd.Series): Price data (typically closing prices)
+            period (int): Number of periods for ROC calculation (default: 12)
+            
+        Returns:
+            pd.Series: Rate of Change values as percentages
+        """
+        if len(data) < period + 1:
+            logger.warning(f"Insufficient data for ROC calculation. Need {period + 1} points, got {len(data)}")
+            return pd.Series(index=data.index, dtype=float)
+        
+        try:
+            # Calculate Rate of Change: ((Current Price - Price n periods ago) / Price n periods ago) * 100
+            roc = ((data - data.shift(period)) / data.shift(period)) * 100
+            
+            logger.debug(f"Calculated ROC_{period} for {len(data)} data points")
+            return roc
+            
+        except Exception as e:
+            logger.error(f"Error calculating ROC_{period}: {str(e)}")
+            return pd.Series(index=data.index, dtype=float)
+    
+    def calculate_obv(self, close_data: pd.Series, volume_data: pd.Series) -> pd.Series:
+        """
+        Calculate On-Balance Volume (OBV) indicator.
+        
+        Args:
+            close_data (pd.Series): Closing price data
+            volume_data (pd.Series): Volume data
+            
+        Returns:
+            pd.Series: On-Balance Volume values
+        """
+        if len(close_data) != len(volume_data):
+            raise ValueError("Close and volume data must have the same length")
+        
+        if len(close_data) < 2:
+            logger.warning("Insufficient data for OBV calculation. Need at least 2 points")
+            return pd.Series(index=close_data.index, dtype=float)
+        
+        try:
+            # Calculate price changes
+            price_change = close_data.diff()
+            
+            # Initialize OBV
+            obv = pd.Series(index=close_data.index, dtype=float)
+            obv.iloc[0] = volume_data.iloc[0]
+            
+            # Calculate OBV
+            for i in range(1, len(close_data)):
+                if price_change.iloc[i] > 0:
+                    obv.iloc[i] = obv.iloc[i-1] + volume_data.iloc[i]
+                elif price_change.iloc[i] < 0:
+                    obv.iloc[i] = obv.iloc[i-1] - volume_data.iloc[i]
+                else:
+                    obv.iloc[i] = obv.iloc[i-1]
+            
+            logger.debug(f"Calculated OBV for {len(close_data)} data points")
+            return obv
+            
+        except Exception as e:
+            logger.error(f"Error calculating OBV: {str(e)}")
+            return pd.Series(index=close_data.index, dtype=float)
+    
+    def calculate_returns(self, data: pd.Series, periods: list = [1, 2, 5]) -> pd.DataFrame:
+        """
+        Calculate returns for multiple periods.
+        
+        Args:
+            data (pd.Series): Price data (typically closing prices)
+            periods (list): List of periods to calculate returns for
+            
+        Returns:
+            pd.DataFrame: DataFrame with return columns for each period
+        """
+        result_df = pd.DataFrame(index=data.index)
+        
+        try:
+            for period in periods:
+                if len(data) > period:
+                    # Calculate percentage returns
+                    returns = ((data - data.shift(period)) / data.shift(period)) * 100
+                    result_df[f'Return_{period}d'] = returns
+                    logger.debug(f"Calculated {period}-day returns")
+                else:
+                    result_df[f'Return_{period}d'] = pd.Series(index=data.index, dtype=float)
+                    logger.warning(f"Insufficient data for {period}-day returns")
+            
+            return result_df
+            
+        except Exception as e:
+            logger.error(f"Error calculating returns: {str(e)}")
+            return pd.DataFrame(index=data.index)
+    
+    def calculate_rolling_volatility(self, data: pd.Series, period: int = 20) -> pd.Series:
+        """
+        Calculate rolling volatility (standard deviation of returns).
+        
+        Args:
+            data (pd.Series): Price data (typically closing prices)
+            period (int): Rolling window period (default: 20)
+            
+        Returns:
+            pd.Series: Rolling volatility values
+        """
+        if len(data) < period + 1:
+            logger.warning(f"Insufficient data for volatility calculation. Need {period + 1} points, got {len(data)}")
+            return pd.Series(index=data.index, dtype=float)
+        
+        try:
+            # Calculate daily returns
+            returns = data.pct_change()
+            
+            # Calculate rolling standard deviation of returns
+            volatility = returns.rolling(window=period, min_periods=period).std() * np.sqrt(252)  # Annualized
+            
+            logger.debug(f"Calculated {period}-day rolling volatility for {len(data)} data points")
+            return volatility
+            
+        except Exception as e:
+            logger.error(f"Error calculating rolling volatility: {str(e)}")
+            return pd.Series(index=data.index, dtype=float)
+
     def add_all_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Add all required technical indicators to the DataFrame.
         
         This method calculates and appends the following indicators:
+        
+        Core Technical Indicators:
+        - RSI_14: 14-period Relative Strength Index
+        - MACD, MACD_Signal, MACD_Histogram: Moving Average Convergence Divergence
+        - ROC_12: 12-period Price Rate of Change
+        
+        Moving Averages & Bollinger Bands:
+        - SMA_20: 20-day Simple Moving Average
         - SMA_50: 50-day Simple Moving Average
-        - SMA_200: 200-day Simple Moving Average  
-        - RSI_14: 14-day Relative Strength Index
-        - MACD: Moving Average Convergence Divergence
-        - MACD_Signal: MACD Signal Line
-        - MACD_Histogram: MACD Histogram
+        - BB_Upper, BB_Middle, BB_Lower: Bollinger Bands (20-period, 2 std dev)
+        
+        Volume Indicators:
+        - Volume_MA_20: 20-day Volume Moving Average
+        - OBV: On-Balance Volume
+        
+        Derived Features for ML:
+        - Return_1d, Return_2d, Return_5d: Previous 1, 2, and 5-day returns
+        - Volatility_20d: 20-day rolling volatility
         
         Args:
-            df (pd.DataFrame): DataFrame with OHLCV data (must have 'Close' column)
+            df (pd.DataFrame): DataFrame with OHLCV data
             
         Returns:
             pd.DataFrame: DataFrame with all technical indicators added as new columns
@@ -180,7 +358,7 @@ class TechnicalAnalyzer:
             return df
         
         # Validate required columns
-        required_columns = ['Close']
+        required_columns = ['Close', 'Volume']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
@@ -189,24 +367,52 @@ class TechnicalAnalyzer:
         result_df = df.copy()
         
         try:
-            # Calculate Simple Moving Averages
-            logger.info("Calculating Simple Moving Averages...")
-            result_df['SMA_50'] = self.calculate_sma(df['Close'], 50)
-            result_df['SMA_200'] = self.calculate_sma(df['Close'], 200)
+            logger.info("Calculating comprehensive technical indicators...")
             
-            # Calculate RSI
-            logger.info("Calculating Relative Strength Index...")
+            # Core Technical Indicators
+            logger.info("Calculating RSI...")
             result_df['RSI_14'] = self.calculate_rsi(df['Close'], 14)
             
-            # Calculate MACD
             logger.info("Calculating MACD...")
             macd_df = self.calculate_macd(df['Close'])
             result_df['MACD'] = macd_df['MACD']
             result_df['MACD_Signal'] = macd_df['MACD_Signal']
             result_df['MACD_Histogram'] = macd_df['MACD_Histogram']
             
+            logger.info("Calculating Price Rate of Change...")
+            result_df['ROC_12'] = self.calculate_price_rate_of_change(df['Close'], 12)
+            
+            # Moving Averages & Bollinger Bands
+            logger.info("Calculating Moving Averages...")
+            result_df['SMA_20'] = self.calculate_sma(df['Close'], 20)
+            result_df['SMA_50'] = self.calculate_sma(df['Close'], 50)
+            
+            logger.info("Calculating Bollinger Bands...")
+            bb_df = self.calculate_bollinger_bands(df['Close'], 20, 2)
+            result_df['BB_Upper'] = bb_df['BB_Upper']
+            result_df['BB_Middle'] = bb_df['BB_Middle']
+            result_df['BB_Lower'] = bb_df['BB_Lower']
+            
+            # Volume Indicators
+            logger.info("Calculating Volume indicators...")
+            result_df['Volume_MA_20'] = self.calculate_sma(df['Volume'], 20)
+            result_df['OBV'] = self.calculate_obv(df['Close'], df['Volume'])
+            
+            # Derived Features for ML
+            logger.info("Calculating return features...")
+            returns_df = self.calculate_returns(df['Close'], [1, 2, 5])
+            for col in returns_df.columns:
+                result_df[col] = returns_df[col]
+            
+            logger.info("Calculating rolling volatility...")
+            result_df['Volatility_20d'] = self.calculate_rolling_volatility(df['Close'], 20)
+            
             # Log summary of indicators added
-            indicators_added = ['SMA_50', 'SMA_200', 'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Histogram']
+            indicators_added = [
+                'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Histogram', 'ROC_12',
+                'SMA_20', 'SMA_50', 'BB_Upper', 'BB_Middle', 'BB_Lower',
+                'Volume_MA_20', 'OBV', 'Return_1d', 'Return_2d', 'Return_5d', 'Volatility_20d'
+            ]
             logger.info(f"Successfully added {len(indicators_added)} technical indicators: {', '.join(indicators_added)}")
             
             return result_df
@@ -231,28 +437,66 @@ class TechnicalAnalyzer:
         latest_row = df.iloc[-1]
         summary = {}
         
-        # Technical indicator columns to summarize
-        indicator_columns = ['SMA_50', 'SMA_200', 'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Histogram']
+        # All technical indicator columns to summarize
+        indicator_columns = [
+            'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Histogram', 'ROC_12',
+            'SMA_20', 'SMA_50', 'BB_Upper', 'BB_Middle', 'BB_Lower',
+            'Volume_MA_20', 'OBV', 'Return_1d', 'Return_2d', 'Return_5d', 'Volatility_20d'
+        ]
         
         for col in indicator_columns:
             if col in df.columns:
                 value = latest_row[col]
                 summary[col] = value if pd.notna(value) else None
         
-        # Add some derived insights
-        if 'Close' in df.columns and 'SMA_50' in summary and 'SMA_200' in summary:
+        # Add derived insights
+        if 'Close' in df.columns:
             current_price = latest_row['Close']
-            sma_50 = summary['SMA_50']
-            sma_200 = summary['SMA_200']
             
-            if pd.notna(sma_50) and pd.notna(sma_200):
-                summary['price_above_sma_50'] = current_price > sma_50
-                summary['price_above_sma_200'] = current_price > sma_200
-                summary['golden_cross'] = sma_50 > sma_200  # Bullish signal
+            # Moving Average insights
+            if 'SMA_20' in summary and 'SMA_50' in summary:
+                sma_20 = summary['SMA_20']
+                sma_50 = summary['SMA_50']
+                
+                if pd.notna(sma_20) and pd.notna(sma_50):
+                    summary['price_above_sma_20'] = current_price > sma_20
+                    summary['price_above_sma_50'] = current_price > sma_50
+                    summary['sma_20_above_sma_50'] = sma_20 > sma_50  # Short-term bullish
+            
+            # Bollinger Bands insights
+            if all(col in summary for col in ['BB_Upper', 'BB_Lower', 'BB_Middle']):
+                bb_upper = summary['BB_Upper']
+                bb_lower = summary['BB_Lower']
+                bb_middle = summary['BB_Middle']
+                
+                if all(pd.notna(val) for val in [bb_upper, bb_lower, bb_middle]):
+                    summary['bb_position'] = (current_price - bb_lower) / (bb_upper - bb_lower)  # 0-1 scale
+                    summary['bb_squeeze'] = (bb_upper - bb_lower) / bb_middle < 0.1  # Low volatility
         
+        # RSI insights
         if 'RSI_14' in summary and pd.notna(summary['RSI_14']):
             rsi_value = summary['RSI_14']
             summary['rsi_overbought'] = rsi_value > 70
             summary['rsi_oversold'] = rsi_value < 30
+            summary['rsi_bullish'] = rsi_value > 50
+        
+        # MACD insights
+        if all(col in summary for col in ['MACD', 'MACD_Signal', 'MACD_Histogram']):
+            macd = summary['MACD']
+            macd_signal = summary['MACD_Signal']
+            macd_hist = summary['MACD_Histogram']
+            
+            if all(pd.notna(val) for val in [macd, macd_signal, macd_hist]):
+                summary['macd_bullish'] = macd > macd_signal
+                summary['macd_strengthening'] = macd_hist > 0
+        
+        # Volume insights
+        if 'Volume' in df.columns and 'Volume_MA_20' in summary:
+            current_volume = latest_row['Volume']
+            volume_ma = summary['Volume_MA_20']
+            
+            if pd.notna(volume_ma) and volume_ma > 0:
+                summary['volume_above_average'] = current_volume > volume_ma
+                summary['volume_ratio'] = current_volume / volume_ma
         
         return summary
