@@ -20,31 +20,31 @@ def test_integration_with_real_data():
     """Test DataStorage with real data from data acquisition"""
     print("Testing DataStorage integration with real data...")
     
-    # Check if we have any existing PDF files to test with
+    # Check if we have any existing CSV files to test with
     data_dir = "data"
-    pdf_files = []
+    csv_files = []
     
     if os.path.exists(data_dir):
-        pdf_files = [f for f in os.listdir(data_dir) if f.endswith('.pdf')]
+        csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
     
-    if not pdf_files:
-        print("No PDF files found for integration testing. Skipping...")
+    if not csv_files:
+        print("No CSV files found for integration testing. Skipping...")
         return True
     
-    print(f"Found {len(pdf_files)} PDF files for testing")
+    print(f"Found {len(csv_files)} CSV files for testing")
     
-    # Use the most recent PDF file
-    pdf_file = sorted(pdf_files)[-1]
-    pdf_path = os.path.join(data_dir, pdf_file)
+    # Use the most recent CSV file
+    csv_file = sorted(csv_files)[-1]
+    csv_path = os.path.join(data_dir, csv_file)
     
-    print(f"Testing with PDF: {pdf_file}")
+    print(f"Testing with CSV: {csv_file}")
     
     try:
         # Initialize data acquisition
         acquisition = PSXDataAcquisition()
         
-        # Extract data from PDF
-        stock_data = acquisition.extract_stock_data(pdf_path)
+        # Parse data from CSV
+        stock_data = acquisition.parse_stock_data(csv_path)
         print(f"Extracted data for {len(stock_data)} stocks")
         
         if stock_data.empty:

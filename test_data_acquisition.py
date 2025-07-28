@@ -11,7 +11,7 @@ from datetime import datetime
 # Add the project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from psx_ai_advisor.data_acquisition import PSXDataAcquisition, PDFDownloadError, NetworkError
+from psx_ai_advisor.data_acquisition import PSXDataAcquisition, CSVDownloadError, NetworkError
 
 def setup_logging():
     """Setup basic logging for testing"""
@@ -34,37 +34,37 @@ def test_data_acquisition():
         
         # Test URL generation
         test_date = "2024-01-15"  # Monday
-        pdf_url = psx_data._get_pdf_url(test_date)
-        filename = psx_data._get_pdf_filename(test_date)
+        csv_url = psx_data._get_csv_url(test_date)
+        filename = psx_data._get_csv_filename(test_date)
         print(f"✓ URL generation works")
         print(f"  Test date: {test_date}")
         print(f"  Generated filename: {filename}")
-        print(f"  Generated URL: {pdf_url}")
+        print(f"  Generated URL: {csv_url}")
         
         # Test available dates generation
         available_dates = psx_data.get_available_dates(5)
         print(f"✓ Available dates generation works")
         print(f"  Recent dates (excluding weekends): {available_dates}")
         
-        # Test PDF download (this will likely fail due to network/availability)
-        print("\nAttempting PDF download test...")
+        # Test CSV download (this will likely fail due to network/availability)
+        print("\nAttempting CSV download test...")
         try:
-            # Try to download a recent PDF
+            # Try to download a recent CSV
             recent_date = available_dates[0] if available_dates else None
             if recent_date:
-                pdf_path = psx_data.download_daily_pdf(recent_date)
-                print(f"✓ PDF download successful: {pdf_path}")
+                csv_path = psx_data.download_daily_csv(recent_date)
+                print(f"✓ CSV download successful: {csv_path}")
                 
-                # Verify the downloaded PDF
-                if psx_data.verify_pdf_download(pdf_path):
-                    print(f"✓ PDF verification successful")
+                # Verify the downloaded CSV
+                if psx_data.verify_csv_download(csv_path):
+                    print(f"✓ CSV verification successful")
                 else:
-                    print(f"⚠ PDF verification failed")
+                    print(f"⚠ CSV verification failed")
             else:
                 print("⚠ No recent dates available for testing")
                 
-        except PDFDownloadError as e:
-            print(f"⚠ PDF download failed (expected): {e}")
+        except CSVDownloadError as e:
+            print(f"⚠ CSV download failed (expected): {e}")
         except NetworkError as e:
             print(f"⚠ Network error (expected): {e}")
         except Exception as e:

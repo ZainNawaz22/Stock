@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to check PDF downloading for a specific date
+Test script to check CSV downloading for a specific date
 """
 
 import sys
@@ -25,21 +25,21 @@ def test_specific_date_download():
         test_date = "2025-07-25"
         print(f"Attempting to download data for: {test_date}")
         
-        # Try to download the PDF
-        pdf_path = data_acq.download_daily_pdf(test_date)
-        print(f"✓ PDF downloaded/found successfully: {pdf_path}")
+        # Try to download the CSV
+        csv_path = data_acq.download_daily_csv(test_date)
+        print(f"✓ CSV downloaded/found successfully: {csv_path}")
         
-        # Verify the PDF
-        if data_acq.verify_pdf_download(pdf_path):
-            print("✓ PDF verification successful")
+        # Verify the CSV
+        if data_acq.verify_csv_download(csv_path):
+            print("✓ CSV verification successful")
             
             # Check file size
-            file_size = os.path.getsize(pdf_path)
-            print(f"✓ PDF file size: {file_size} bytes")
+            file_size = os.path.getsize(csv_path)
+            print(f"✓ CSV file size: {file_size} bytes")
             
             return True
         else:
-            print("✗ PDF verification failed")
+            print("✗ CSV verification failed")
             return False
             
     except Exception as e:
@@ -49,8 +49,8 @@ def test_specific_date_download():
 if __name__ == "__main__":
     success = test_specific_date_download()
     if success:
-        print("\n🎉 PDF downloading is working correctly!")
+        print("\n🎉 CSV downloading is working correctly!")
     else:
-        print("\n❌ PDF downloading failed")
+        print("\n❌ CSV downloading failed")
     
     sys.exit(0 if success else 1)

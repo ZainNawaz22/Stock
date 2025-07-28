@@ -24,12 +24,13 @@ def main():
     
     dependencies = [
         ("requests", None),
-        ("pdfplumber", None),
         ("pandas", None),
         ("pandas_ta", "import pandas_ta"),
         ("sklearn", "import sklearn"),
         ("yaml", "import yaml"),
-        ("numpy", None)
+        ("numpy", None),
+        ("fastapi", None),
+        ("uvicorn", None)
     ]
     
     all_available = True

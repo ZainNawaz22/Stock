@@ -2,20 +2,20 @@
 
 ## Introduction
 
-The PSX AI Advisor is a personal, automated data analysis tool designed to empower investment decisions on the Pakistan Stock Exchange (PSX). The system will systematically gather and analyze stock data by downloading the daily "Closing Rate Summary" PDF from dps.psx.com.pk/downloads, leveraging machine learning to provide simple, actionable insights. This tool serves as a data-driven co-pilot for navigating the PSX, focusing on daily stock data extraction from PDF files, technical indicator calculation, and predictive modeling to generate investment suggestions.
+The PSX AI Advisor is a personal, automated data analysis tool designed to empower investment decisions on the Pakistan Stock Exchange (PSX). The system will systematically gather and analyze stock data by downloading the daily "Closing Rate Summary" CSV from dps.psx.com.pk/downloads, leveraging machine learning to provide simple, actionable insights. This tool serves as a data-driven co-pilot for navigating the PSX, focusing on daily stock data extraction from CSV files, technical indicator calculation, and predictive modeling to generate investment suggestions.
 
 ## Requirements
 
 ### Requirement 1: Data Acquisition System
 
-**User Story:** As a data-driven investor, I want the system to automatically download and extract daily stock data from the PSX Closing Rate Summary PDF, so that I have comprehensive up-to-date market information for analysis.
+**User Story:** As a data-driven investor, I want the system to automatically download and parse daily stock data from the PSX Closing Rate Summary CSV, so that I have comprehensive up-to-date market information for analysis.
 
 #### Acceptance Criteria
 
-1. WHEN the user executes the data acquisition script THEN the system SHALL download the daily "Closing Rate Summary" PDF from dps.psx.com.pk/downloads
-2. WHEN the PDF is downloaded THEN the system SHALL extract OHLCV (Open, High, Low, Close, Volume) data for all stocks from the PDF
+1. WHEN the user executes the data acquisition script THEN the system SHALL download the daily "Closing Rate Summary" CSV from dps.psx.com.pk/downloads
+2. WHEN the CSV is downloaded THEN the system SHALL parse OHLCV (Open, High, Low, Close, Volume) data for all stocks from the CSV file
 3. WHEN a network error occurs during download THEN the system SHALL retry the request at least once before failing
-4. WHEN the data extraction process runs THEN the system SHALL complete data acquisition for all stocks within reasonable time limits
+4. WHEN the data parsing process runs THEN the system SHALL complete data acquisition for all stocks within reasonable time limits
 
 ### Requirement 2: Technical Indicator Calculation
 
@@ -57,8 +57,8 @@ The PSX AI Advisor is a personal, automated data analysis tool designed to empow
 
 #### Acceptance Criteria
 
-1. WHEN the user runs the main Python script THEN the system SHALL execute PDF download, data extraction, processing, and prediction in sequence
-2. WHEN the script is running THEN the system SHALL print status updates to the terminal (e.g., "Downloading PDF...", "Extracting data for ENGRO...", "Calculating indicators...")
+1. WHEN the user runs the main Python script THEN the system SHALL execute CSV download, data parsing, processing, and prediction in sequence
+2. WHEN the script is running THEN the system SHALL print status updates to the terminal (e.g., "Downloading CSV...", "Parsing data for ENGRO...", "Calculating indicators...")
 3. WHEN the process completes THEN the system SHALL display final predictions for all processed stocks
 4. WHEN an error occurs THEN the system SHALL provide clear error messages to help with troubleshooting
 

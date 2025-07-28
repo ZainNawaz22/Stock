@@ -7,32 +7,32 @@
 
 
   - Create directory structure for modules, data, and configuration files
-  - Set up requirements.txt with all necessary dependencies (requests, pdfplumber, pandas, pandas-ta, scikit-learn, pyyaml)
+  - Set up requirements.txt with all necessary dependencies (requests, pandas, pandas-ta, scikit-learn, pyyaml, fastapi, uvicorn)
   - Create config.yaml with PSX download URLs, technical indicator settings, and ML parameters
   - Implement configuration loader utility to read settings
   - _Requirements: 1.1, 6.3_
 
-- [x] 2. Implement PDF download functionality
+- [x] 2. Implement CSV download functionality
 
 
 
 
 
   - Create PSXDataAcquisition class with requests integration
-  - Implement download_daily_pdf() to download Closing Rate Summary PDF from dps.psx.com.pk/downloads
+  - Implement download_daily_csv() to download Closing Rate Summary CSV from dps.psx.com.pk/downloads
   - Add retry mechanism with exponential backoff for network failures
   - Implement basic error handling for download operations
   - _Requirements: 1.1, 1.3, 6.2_
 
-- [x] 3. Implement PDF parsing and data extraction
+- [x] 3. Implement CSV parsing and data extraction
 
 
 
 
 
-  - Create extract_stock_data() method to parse PDF and extract OHLCV data for all stocks
-  - Use pdfplumber or PyPDF2 to parse PDF content and extract tabular data
-  - Handle data format validation and type conversion from PDF text
+  - Create parse_stock_data() method to parse CSV and extract OHLCV data for all stocks
+  - Use pandas to read CSV content and extract tabular data
+  - Handle data format validation and type conversion from CSV data
   - Structure extracted data into pandas DataFrame with proper column names
   - _Requirements: 1.1, 1.2_
 
@@ -91,9 +91,9 @@
   - Implement fallback mechanisms for critical failures
   - _Requirements: 1.3, 6.2, 6.3_
 
-- [ ] 10. Implement batch processing for all stocks from PDF
-  - Create get_all_stock_data() method to process all stocks from single PDF download
-  - Implement efficient processing of all stock data from the daily PDF file
+- [ ] 10. Implement batch processing for all stocks from CSV
+  - Create get_all_stock_data() method to process all stocks from single CSV download
+  - Implement efficient processing of all stock data from the daily CSV file
   - Add progress tracking and error reporting for batch operations
   - Ensure system completes processing within reasonable time limits
   - _Requirements: 1.1, 1.2, 1.4, 6.1_
@@ -106,7 +106,7 @@
   - _Requirements: 4.1, 4.2, 6.4_
 
 - [ ] 12. Create comprehensive testing suite
-  - Write unit tests for PDF download and parsing with mocked responses
+  - Write unit tests for CSV download and parsing with mocked responses
   - Create tests for technical indicator calculations with known test data
   - Implement integration tests for complete workflow
   - Add test data fixtures and mock external dependencies
@@ -119,9 +119,114 @@
   - Create installation and setup documentation
   - _Requirements: 6.3_
 
-- [ ] 14. Implement final integration and end-to-end testing
-  - Test complete workflow from PDF download to prediction generation
-  - Validate system performance with full stock data from daily PDF
-  - Test error scenarios and recovery mechanisms
+- [ ] 14. Create FastAPI backend server with REST endpoints
+  - Implement FastAPI application with CORS configuration for frontend access
+  - Create GET /api/stocks endpoint to return list of available stocks with basic info
+  - Create GET /api/stocks/{symbol}/data endpoint to return OHLCV data with technical indicators
+  - Create GET /api/predictions endpoint to return current ML predictions for all stocks
+  - Add GET /api/system/status endpoint for system health and last update information
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
+
+- [ ] 15. Implement API data serialization and validation
+  - Create Pydantic models for API request/response validation
+  - Implement StockDataResponse, PredictionResult, and SystemStatus schemas
+  - Add data formatting utilities for JSON serialization of pandas DataFrames
+  - Implement error handling with appropriate HTTP status codes and error messages
+  - Add API request logging and performance monitoring
+  - _Requirements: 7.1, 7.2, 7.5_
+
+- [ ] 16. Set up React frontend project structure
+  - Initialize React project with TypeScript and modern tooling (Vite or Create React App)
+  - Configure project structure with components, services, hooks, and types directories
+  - Set up Material-UI or Tailwind CSS for responsive design framework
+  - Configure Axios for API communication with base URL and interceptors
+  - Set up environment configuration for API endpoints
+  - _Requirements: 6.1, 6.6_
+
+- [ ] 17. Create main dashboard component with summary cards
+  - Implement Dashboard component with responsive grid layout
+  - Create summary cards showing total stocks, active predictions, and system status
+  - Add real-time system status indicator with last update timestamp
+  - Implement loading states and error handling for dashboard data
+  - Add auto-refresh functionality with configurable interval
+  - _Requirements: 6.1, 6.5, 6.6_
+
+- [ ] 18. Implement stock list component with filtering and sorting
+  - Create StockList component with table/grid view of all stocks
+  - Add search functionality to filter stocks by symbol or name
+  - Implement sorting by price, change percentage, volume, and prediction
+  - Add pagination for handling large numbers of stocks
+  - Include current price, change percentage, and prediction status for each stock
+  - _Requirements: 6.1, 6.4, 6.7_
+
+- [ ] 19. Create interactive stock chart component
+  - Implement StockChart component using Chart.js or Recharts library
+  - Create candlestick chart for OHLCV data with zoom and pan functionality
+  - Add technical indicator overlays (SMA 50/200, RSI, MACD) with toggle controls
+  - Implement time period selection (1D, 7D, 1M, 3M, 6M, 1Y)
+  - Add hover tooltips showing detailed price and indicator information
+  - _Requirements: 6.2, 6.8_
+
+- [ ] 20. Implement prediction panel with confidence visualization
+  - Create PredictionPanel component to display ML predictions with visual indicators
+  - Add confidence score visualization using progress bars or gauges
+  - Implement color-coded prediction status (UP=green, DOWN=red) with icons
+  - Show model accuracy and last prediction update timestamp
+  - Add prediction history chart showing accuracy over time
+  - _Requirements: 6.3, 6.4_
+
+- [ ] 21. Add real-time data updates and WebSocket integration
+  - Implement WebSocket connection for real-time price and prediction updates
+  - Create useWebSocket custom hook for managing connection state
+  - Add fallback to HTTP polling when WebSocket connection fails
+  - Implement optimistic UI updates with server confirmation
+  - Add connection status indicator and reconnection logic
+  - _Requirements: 6.5, 7.3_
+
+- [ ] 22. Create stock detail page with comprehensive analysis
+  - Implement detailed stock view with URL routing (e.g., /stock/ENGRO)
+  - Create comprehensive stock header with current price, change, and key metrics
+  - Add detailed technical indicators panel with current values and trends
+  - Implement historical performance section with key statistics
+  - Add navigation between stocks and breadcrumb navigation
+  - _Requirements: 6.4, 6.8_
+
+- [ ] 23. Implement responsive design and mobile optimization
+  - Ensure all components work properly on mobile devices (320px+)
+  - Implement responsive breakpoints for tablet (768px+) and desktop (1024px+)
+  - Optimize chart interactions for touch devices
+  - Add mobile-friendly navigation with hamburger menu
+  - Test and optimize performance on mobile devices
+  - _Requirements: 6.6_
+
+- [ ] 24. Add error handling and loading states throughout UI
+  - Implement global error boundary for catching React errors
+  - Add loading spinners and skeleton screens for all data-loading components
+  - Create user-friendly error messages for API failures
+  - Implement retry mechanisms for failed requests
+  - Add offline detection and appropriate user feedback
+  - _Requirements: 6.1, 7.5_
+
+- [ ] 25. Create production build and deployment configuration
+  - Configure production build with optimizations (minification, tree shaking)
+  - Set up Docker containers for both backend API and frontend application
+  - Create docker-compose.yml for local development and testing
+  - Configure Nginx reverse proxy for serving static files and API routing
+  - Add environment-specific configuration for development, staging, and production
+  - _Requirements: 8.5, 8.6_
+
+- [ ] 26. Implement comprehensive testing for web interface
+  - Write unit tests for React components using Jest and React Testing Library
+  - Create integration tests for API endpoints with test database
+  - Add end-to-end tests using Cypress or Playwright for critical user flows
+  - Test responsive design across different screen sizes and devices
+  - Implement performance testing for API response times and frontend rendering
+  - _Requirements: 8.1, 8.2, 8.5, 8.6_
+
+- [ ] 27. Implement final integration and end-to-end testing
+  - Test complete workflow from CSV download to web UI display
+  - Validate system performance with full stock data from daily CSV
+  - Test error scenarios and recovery mechanisms across all components
   - Ensure all requirements are met and system operates reliably
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4_
+  - Verify web interface updates correctly when new data is processed
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 8.1, 8.2, 8.5, 8.6_

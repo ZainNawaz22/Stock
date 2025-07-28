@@ -25,16 +25,16 @@ def test_stock_download():
         today = datetime.now().strftime('%Y-%m-%d')
         print(f"Attempting to download data for: {today}")
         
-        # Try to download today's PDF
-        pdf_path = data_acq.download_daily_pdf(today)
-        print(f"✓ PDF downloaded successfully: {pdf_path}")
+        # Try to download today's CSV
+        csv_path = data_acq.download_daily_csv(today)
+        print(f"✓ CSV downloaded successfully: {csv_path}")
         
-        # Verify the PDF
-        if data_acq.verify_pdf_download(pdf_path):
-            print("✓ PDF verification successful")
+        # Verify the CSV
+        if data_acq.verify_csv_download(csv_path):
+            print("✓ CSV verification successful")
             return True
         else:
-            print("✗ PDF verification failed")
+            print("✗ CSV verification failed")
             return False
             
     except Exception as e:

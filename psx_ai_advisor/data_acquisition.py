@@ -1,15 +1,13 @@
 """
 Data acquisition module for PSX AI Advisor
-Handles downloading and extracting stock data from PSX Closing Rate Summary PDFs
+Handles downloading and parsing stock data from PSX Closing Rate Summary CSV files
 """
 
 import requests
 import os
 import time
 import logging
-import re
 import pandas as pd
-import pdfplumber
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from .config_loader import get_section, get_value
@@ -25,19 +23,19 @@ class NetworkError(PSXDataAcquisitionError):
     pass
 
 
-class PDFDownloadError(PSXDataAcquisitionError):
-    """Raised when PDF download fails"""
+class CSVDownloadError(PSXDataAcquisitionError):
+    """Raised when CSV download fails"""
     pass
 
 
-class PDFParsingError(PSXDataAcquisitionError):
-    """Raised when PDF parsing fails"""
+class CSVParsingError(PSXDataAcquisitionError):
+    """Raised when CSV parsing fails"""
     pass
 
 
 class PSXDataAcquisition:
     """
-    Handles downloading daily stock data from PSX Closing Rate Summary PDFs
+    Handles downloading daily stock data from PSX Closing Rate Summary CSV files
     """
     
     def __init__(self):
@@ -61,33 +59,33 @@ class PSXDataAcquisition:
         self.data_dir = get_value('storage', 'data_directory', 'data')
         os.makedirs(self.data_dir, exist_ok=True)
     
-    def _get_pdf_filename(self, date: Optional[str] = None) -> str:
+    def _get_csv_filename(self, date: Optional[str] = None) -> str:
         """
-        Generate PDF filename for a given date
+        Generate CSV filename for a given date
         
         Args:
             date (str, optional): Date in YYYY-MM-DD format. Defaults to today.
             
         Returns:
-            str: PDF filename
+            str: CSV filename
         """
         if date is None:
             date = datetime.now().strftime('%Y-%m-%d')
         
-        # PSX uses YYYY-MM-DD.pdf format for closing rates
-        return f"{date}.pdf"
+        # PSX uses YYYY-MM-DD.csv format for closing rates
+        return f"{date}.csv"
     
-    def _get_pdf_url(self, date: Optional[str] = None) -> str:
+    def _get_csv_url(self, date: Optional[str] = None) -> str:
         """
-        Generate full URL for PDF download
+        Generate full URL for CSV download
         
         Args:
             date (str, optional): Date in YYYY-MM-DD format. Defaults to today.
             
         Returns:
-            str: Full PDF download URL
+            str: Full CSV download URL
         """
-        filename = self._get_pdf_filename(date)
+        filename = self._get_csv_filename(date)
         return f"{self.downloads_url}/{filename}"
     
     def _retry_with_backoff(self, func, *args, **kwargs) -> Any:
@@ -149,10 +147,10 @@ class PSXDataAcquisition:
         )
         response.raise_for_status()
         
-        # Check if response contains PDF content
+        # Check if response contains CSV content
         content_type = response.headers.get('content-type', '').lower()
-        if 'pdf' not in content_type and 'application/octet-stream' not in content_type:
-            raise PDFDownloadError(f"Expected PDF content, got: {content_type}")
+        if 'csv' not in content_type and 'text' not in content_type and 'application/octet-stream' not in content_type:
+            raise CSVDownloadError(f"Expected CSV content, got: {content_type}")
         
         # Write file in chunks to handle large files
         with open(local_path, 'wb') as file:
@@ -162,54 +160,54 @@ class PSXDataAcquisition:
         
         # Verify file was created and has content
         if not os.path.exists(local_path) or os.path.getsize(local_path) == 0:
-            raise PDFDownloadError(f"Downloaded file is empty or doesn't exist: {local_path}")
+            raise CSVDownloadError(f"Downloaded file is empty or doesn't exist: {local_path}")
         
         self.logger.info(f"Successfully downloaded: {local_path} ({os.path.getsize(local_path)} bytes)")
         return True
     
-    def download_daily_pdf(self, date: Optional[str] = None) -> str:
+    def download_daily_csv(self, date: Optional[str] = None) -> str:
         """
-        Download the daily Closing Rate Summary PDF from PSX
+        Download the daily Closing Rate Summary CSV from PSX
         
         Args:
             date (str, optional): Date in YYYY-MM-DD format. Defaults to today.
             
         Returns:
-            str: Path to downloaded PDF file
+            str: Path to downloaded CSV file
             
         Raises:
-            PDFDownloadError: If PDF download fails
+            CSVDownloadError: If CSV download fails
             NetworkError: If network operations fail after retries
         """
         try:
             # Generate URL and local file path
-            pdf_url = self._get_pdf_url(date)
-            filename = self._get_pdf_filename(date)
+            csv_url = self._get_csv_url(date)
+            filename = self._get_csv_filename(date)
             local_path = os.path.join(self.data_dir, filename)
             
             # Check if file already exists
             if os.path.exists(local_path):
-                self.logger.info(f"PDF already exists: {local_path}")
+                self.logger.info(f"CSV already exists: {local_path}")
                 return local_path
             
             # Download with retry mechanism
-            self._retry_with_backoff(self._download_file, pdf_url, local_path)
+            self._retry_with_backoff(self._download_file, csv_url, local_path)
             
             return local_path
             
         except requests.HTTPError as e:
             if e.response.status_code == 404:
-                raise PDFDownloadError(f"PDF not found for date {date}. It may not be available yet.")
+                raise CSVDownloadError(f"CSV not found for date {date}. It may not be available yet.")
             else:
-                raise PDFDownloadError(f"HTTP error downloading PDF: {e}")
+                raise CSVDownloadError(f"HTTP error downloading CSV: {e}")
         except requests.RequestException as e:
-            raise NetworkError(f"Network error downloading PDF: {e}")
+            raise NetworkError(f"Network error downloading CSV: {e}")
         except Exception as e:
-            raise PDFDownloadError(f"Unexpected error downloading PDF: {e}")
+            raise CSVDownloadError(f"Unexpected error downloading CSV: {e}")
     
     def get_available_dates(self, days_back: int = 7) -> list:
         """
-        Get list of dates for which PDFs might be available
+        Get list of dates for which CSVs might be available
         
         Args:
             days_back (int): Number of days to look back from today
@@ -228,218 +226,168 @@ class PSXDataAcquisition:
         
         return dates
     
-    def verify_pdf_download(self, pdf_path: str) -> bool:
+    def verify_csv_download(self, csv_path: str) -> bool:
         """
-        Verify that downloaded PDF is valid and contains expected content
+        Verify that downloaded CSV is valid and contains expected content
         
         Args:
-            pdf_path (str): Path to PDF file
+            csv_path (str): Path to CSV file
             
         Returns:
-            bool: True if PDF is valid
+            bool: True if CSV is valid
         """
         try:
-            if not os.path.exists(pdf_path):
+            if not os.path.exists(csv_path):
                 return False
             
-            # Check file size (should be at least a few KB for a valid PDF)
-            file_size = os.path.getsize(pdf_path)
-            if file_size < 1024:  # Less than 1KB is suspicious
-                self.logger.warning(f"PDF file seems too small: {file_size} bytes")
+            # Check file size (should be at least a few KB for a valid CSV)
+            file_size = os.path.getsize(csv_path)
+            if file_size < 100:  # Less than 100 bytes is suspicious
+                self.logger.warning(f"CSV file seems too small: {file_size} bytes")
                 return False
             
-            # Check PDF header
-            with open(pdf_path, 'rb') as file:
-                header = file.read(4)
-                if header != b'%PDF':
-                    self.logger.error("File does not have valid PDF header")
-                    return False
+            # Try to read the first few lines to verify CSV format
+            try:
+                with open(csv_path, 'r', encoding='utf-8') as file:
+                    first_line = file.readline().strip()
+                    if not first_line:
+                        self.logger.error("CSV file appears to be empty")
+                        return False
+                    
+                    # Check if it looks like CSV (has commas)
+                    if ',' not in first_line:
+                        self.logger.warning("File doesn't appear to be comma-separated")
+                        # Could still be valid with different separator
+                
+            except UnicodeDecodeError:
+                # Try with different encoding
+                with open(csv_path, 'r', encoding='latin-1') as file:
+                    first_line = file.readline().strip()
+                    if not first_line:
+                        self.logger.error("CSV file appears to be empty")
+                        return False
             
-            self.logger.info(f"PDF verification successful: {pdf_path}")
+            self.logger.info(f"CSV verification successful: {csv_path}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Error verifying PDF: {e}")
+            self.logger.error(f"Error verifying CSV: {e}")
             return False
     
-    def _parse_stock_line(self, line: str) -> Optional[Dict[str, Any]]:
+    def _validate_csv_format(self, csv_path: str) -> bool:
         """
-        Parse a single stock data line from PDF text
+        Validate CSV format and structure for the expected format:
+        Date,Open,High,Low,Close,Volume,Dividends,Stock Splits,Capital Gains
         
         Args:
-            line (str): Raw text line from PDF
+            csv_path (str): Path to CSV file
             
         Returns:
-            Optional[Dict[str, Any]]: Parsed stock data or None if parsing fails
+            bool: True if CSV format is valid
         """
         try:
-            # Clean the line
-            line = line.strip()
-            if not line:
-                return None
+            # Try to read the CSV with pandas to validate structure
+            df = pd.read_csv(csv_path, nrows=5)  # Read just first 5 rows for validation
             
-            # Split by whitespace and handle multi-word company names
-            parts = line.split()
-            if len(parts) < 8:  # Need at least symbol + 7 numeric values
-                return None
+            # Check if we have the expected OHLCV columns
+            required_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+            missing_columns = [col for col in required_columns if col not in df.columns]
             
-            # Extract numeric values from the end (last 7 values)
-            # Format: Turnover Prv.Rate Open Rate Highest Lowest Last Rate Diff.
+            if missing_columns:
+                self.logger.error(f"CSV missing required columns: {missing_columns}")
+                self.logger.info(f"Available columns: {list(df.columns)}")
+                return False
+            
+            # Check if we have at least some data
+            if len(df) == 0:
+                self.logger.error("CSV file contains no data rows")
+                return False
+            
+            # Verify Date column can be parsed
             try:
-                diff = float(parts[-1])
-                last_rate = float(parts[-2])
-                lowest = float(parts[-3])
-                highest = float(parts[-4])
-                open_rate = float(parts[-5])
-                prev_rate = float(parts[-6])
-                turnover = int(parts[-7])
-            except (ValueError, IndexError):
-                return None
+                pd.to_datetime(df['Date'].iloc[0])
+            except Exception as e:
+                self.logger.error(f"Date column cannot be parsed: {e}")
+                return False
             
-            # Everything before the numeric values is the company name and symbol
-            name_parts = parts[:-7]
-            if not name_parts:
-                return None
+            # Verify numeric columns contain numeric data
+            numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+            for col in numeric_columns:
+                try:
+                    pd.to_numeric(df[col].iloc[0])
+                except Exception as e:
+                    self.logger.error(f"Column {col} contains non-numeric data: {e}")
+                    return False
             
-            # First part is typically the symbol, rest is company name
-            symbol = name_parts[0]
-            company_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else name_parts[0]
-            
-            # Validate that we have reasonable values
-            if turnover < 0 or last_rate <= 0 or highest <= 0 or lowest <= 0 or open_rate <= 0:
-                return None
-            
-            return {
-                'Symbol': symbol,
-                'Company_Name': company_name,
-                'Open': open_rate,
-                'High': highest,
-                'Low': lowest,
-                'Close': last_rate,
-                'Volume': turnover,
-                'Previous_Close': prev_rate,
-                'Change': diff
-            }
+            self.logger.info(f"CSV validation successful: {len(df.columns)} columns, {len(df)} sample rows")
+            return True
             
         except Exception as e:
-            self.logger.debug(f"Failed to parse line: {line} - Error: {e}")
-            return None
+            self.logger.error(f"CSV validation failed: {e}")
+            return False
     
-    def _is_data_line(self, line: str) -> bool:
+    def parse_stock_data(self, csv_path: str) -> pd.DataFrame:
         """
-        Check if a line contains stock data
+        Parse OHLCV data for all stocks from the CSV file
         
         Args:
-            line (str): Text line to check
-            
-        Returns:
-            bool: True if line contains stock data
-        """
-        line = line.strip()
-        
-        # Skip empty lines
-        if not line:
-            return False
-        
-        # Skip section headers
-        if line.startswith('***') and line.endswith('***'):
-            return False
-        
-        # Skip document headers
-        skip_patterns = [
-            'Pakistan Stock',
-            'CLOSING RATE',
-            'From :',
-            'PageNo:',
-            'Friday',
-            'Monday',
-            'Tuesday', 
-            'Wednesday',
-            'Thursday',
-            'Saturday',
-            'Sunday',
-            'Flu No:',
-            'P. Vol.:',
-            'C. Vol.:',
-            'Total:',
-            'Company Name'
-        ]
-        
-        for pattern in skip_patterns:
-            if line.startswith(pattern):
-                return False
-        
-        # Must contain numeric data
-        if not any(char.isdigit() for char in line):
-            return False
-        
-        # Should have enough parts to be a valid stock line
-        parts = line.split()
-        if len(parts) < 8:
-            return False
-        
-        return True
-    
-    def extract_stock_data(self, pdf_path: str) -> pd.DataFrame:
-        """
-        Extract OHLCV data for all stocks from the PDF file
-        
-        Args:
-            pdf_path (str): Path to the PDF file
+            csv_path (str): Path to the CSV file
             
         Returns:
             pd.DataFrame: DataFrame containing stock data with columns:
                          Symbol, Company_Name, Open, High, Low, Close, Volume, Previous_Close, Change
                          
         Raises:
-            PDFParsingError: If PDF parsing fails
-            FileNotFoundError: If PDF file doesn't exist
+            CSVParsingError: If CSV parsing fails
+            FileNotFoundError: If CSV file doesn't exist
         """
-        if not os.path.exists(pdf_path):
-            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f"CSV file not found: {csv_path}")
         
         try:
-            self.logger.info(f"Extracting stock data from: {pdf_path}")
+            self.logger.info(f"Parsing stock data from: {csv_path}")
             
-            stock_data = []
+            # Try different encodings
+            encodings = ['utf-8', 'latin-1', 'cp1252']
+            df = None
             
-            with pdfplumber.open(pdf_path) as pdf:
-                self.logger.info(f"Processing {len(pdf.pages)} pages")
-                
-                for page_num, page in enumerate(pdf.pages):
-                    try:
-                        # Extract text from page
-                        text = page.extract_text()
-                        if not text:
-                            self.logger.warning(f"No text found on page {page_num + 1}")
-                            continue
-                        
-                        # Split into lines
-                        lines = text.split('\n')
-                        
-                        # Process each line
-                        for line_num, line in enumerate(lines):
-                            if self._is_data_line(line):
-                                parsed_data = self._parse_stock_line(line)
-                                if parsed_data:
-                                    stock_data.append(parsed_data)
-                                else:
-                                    self.logger.debug(f"Failed to parse line {line_num + 1} on page {page_num + 1}: {line}")
-                        
-                        self.logger.debug(f"Processed page {page_num + 1}: found {len([l for l in lines if self._is_data_line(l)])} data lines")
-                        
-                    except Exception as e:
-                        self.logger.error(f"Error processing page {page_num + 1}: {e}")
-                        continue
+            for encoding in encodings:
+                try:
+                    df = pd.read_csv(csv_path, encoding=encoding)
+                    self.logger.info(f"Successfully read CSV with {encoding} encoding")
+                    break
+                except UnicodeDecodeError:
+                    continue
+                except Exception as e:
+                    self.logger.warning(f"Failed to read CSV with {encoding}: {e}")
+                    continue
             
-            if not stock_data:
-                raise PDFParsingError("No stock data found in PDF")
+            if df is None:
+                raise CSVParsingError("Could not read CSV file with any supported encoding")
             
-            # Create DataFrame
-            df = pd.DataFrame(stock_data)
+            if len(df) == 0:
+                raise CSVParsingError("CSV file contains no data")
             
-            # Data validation and type conversion
-            numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume', 'Previous_Close', 'Change']
+            self.logger.info(f"Read CSV with {len(df)} rows and {len(df.columns)} columns")
+            self.logger.info(f"Columns: {list(df.columns)}")
+            
+            # Check if this is the expected format: Date,Open,High,Low,Close,Volume,Dividends,Stock Splits,Capital Gains
+            expected_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+            
+            # Verify we have the required OHLCV columns
+            missing_columns = [col for col in expected_columns if col not in df.columns]
+            if missing_columns:
+                raise CSVParsingError(f"CSV missing required columns: {missing_columns}. Found columns: {list(df.columns)}")
+            
+            # Keep only the columns we need for technical analysis (ignore Dividends, Stock Splits, Capital Gains)
+            columns_to_keep = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+            df = df[columns_to_keep].copy()
+            
+            # Convert Date column to datetime and remove timezone info for consistency
+            df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+            
+            # Data validation and type conversion for OHLCV columns
+            numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
             for col in numeric_columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             
@@ -460,58 +408,78 @@ class PSXDataAcquisition:
                 (df['Volume'] >= 0)
             ]
             
-            # Add date column
-            # Extract date from PDF filename or use current date
-            try:
-                filename = os.path.basename(pdf_path)
-                date_match = re.search(r'(\d{4}-\d{2}-\d{2})', filename)
-                if date_match:
-                    date_str = date_match.group(1)
-                    df['Date'] = pd.to_datetime(date_str)
-                else:
-                    df['Date'] = pd.to_datetime('today').normalize()
-            except Exception:
-                df['Date'] = pd.to_datetime('today').normalize()
+            # Extract symbol from filename (e.g., ABL_historical_data.csv -> ABL)
+            filename = os.path.basename(csv_path)
+            if '_historical_data.csv' in filename:
+                symbol = filename.replace('_historical_data.csv', '')
+            else:
+                # Fallback: try to extract symbol from filename
+                import re
+                symbol_match = re.search(r'([A-Z]+)', filename)
+                symbol = symbol_match.group(1) if symbol_match else 'UNKNOWN'
+            
+            # Add Symbol column
+            df['Symbol'] = symbol
+            
+            # Add Company_Name (use Symbol as placeholder)
+            df['Company_Name'] = symbol
+            
+            # Calculate Previous_Close and Change
+            df = df.sort_values('Date').reset_index(drop=True)
+            df['Previous_Close'] = df['Close'].shift(1)
+            df['Change'] = df['Close'] - df['Previous_Close']
+            
+            # Fill first row's Previous_Close with Close value
+            df.loc[0, 'Previous_Close'] = df.loc[0, 'Close']
+            df.loc[0, 'Change'] = 0.0
             
             # Reorder columns
             column_order = ['Date', 'Symbol', 'Company_Name', 'Open', 'High', 'Low', 'Close', 'Volume', 'Previous_Close', 'Change']
             df = df[column_order]
             
-            # Sort by symbol
-            df = df.sort_values('Symbol').reset_index(drop=True)
+            # Sort by date (most recent first)
+            df = df.sort_values('Date', ascending=False).reset_index(drop=True)
             
-            self.logger.info(f"Successfully extracted data for {len(df)} stocks")
+            self.logger.info(f"Successfully parsed {len(df)} records for stock {symbol}")
+            self.logger.info(f"Date range: {df['Date'].min()} to {df['Date'].max()}")
             
             return df
             
         except Exception as e:
-            if isinstance(e, (PDFParsingError, FileNotFoundError)):
+            if isinstance(e, (CSVParsingError, FileNotFoundError)):
                 raise
             else:
-                raise PDFParsingError(f"Error extracting stock data from PDF: {e}")
+                raise CSVParsingError(f"Error parsing stock data from CSV: {e}")
     
-    def get_all_stock_data(self, date: Optional[str] = None) -> pd.DataFrame:
+    def get_all_stock_data(self, date: Optional[str] = None, csv_path: Optional[str] = None) -> pd.DataFrame:
         """
-        Download PDF and extract all stock data for a given date
+        Download CSV and parse all stock data for a given date, or parse from a specific CSV file
         
         Args:
             date (str, optional): Date in YYYY-MM-DD format. Defaults to today.
+            csv_path (str, optional): Direct path to CSV file to parse. If provided, date is ignored.
             
         Returns:
             pd.DataFrame: DataFrame containing all stock data
             
         Raises:
-            PDFDownloadError: If PDF download fails
-            PDFParsingError: If PDF parsing fails
+            CSVDownloadError: If CSV download fails
+            CSVParsingError: If CSV parsing fails
         """
         try:
-            # Download the PDF
-            pdf_path = self.download_daily_pdf(date)
+            if csv_path:
+                # Use provided CSV file path
+                if not os.path.exists(csv_path):
+                    raise CSVParsingError(f"CSV file not found: {csv_path}")
+                file_path = csv_path
+            else:
+                # Download the CSV
+                file_path = self.download_daily_csv(date)
             
-            # Extract stock data
-            stock_data = self.extract_stock_data(pdf_path)
+            # Parse stock data
+            stock_data = self.parse_stock_data(file_path)
             
-            self.logger.info(f"Successfully processed {len(stock_data)} stocks for date {date or 'today'}")
+            self.logger.info(f"Successfully processed {len(stock_data)} records from {file_path}")
             
             return stock_data
             

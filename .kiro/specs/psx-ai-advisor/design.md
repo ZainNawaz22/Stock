@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PSX AI Advisor is a Python-based automated stock analysis system that downloads and extracts daily stock data from the Pakistan Stock Exchange (PSX) Closing Rate Summary PDF, calculates technical indicators, and uses machine learning to predict next-day price movements. The system is designed as a command-line tool that processes all stocks and provides actionable investment insights.
+The PSX AI Advisor is a comprehensive stock analysis system that downloads and parses daily stock data from the Pakistan Stock Exchange (PSX) Closing Rate Summary CSV, calculates technical indicators, and uses machine learning to predict next-day price movements. The system features both a Python-based backend for data processing and a modern web interface that provides interactive dashboards, real-time charts, and intuitive visualization of stock analysis and predictions.
 
 ## Architecture
 
@@ -10,11 +10,17 @@ The system follows a modular architecture with clear separation of concerns:
 
 ```
 PSX AI Advisor
-├── Data Acquisition Layer (PDF Download + Extraction)
-├── Data Processing Layer (Pandas + Technical Analysis)
-├── Storage Layer (CSV Files)
-├── Machine Learning Layer (Scikit-learn)
-└── Presentation Layer (Command Line Interface)
+├── Backend Services
+│   ├── Data Acquisition Layer (CSV Download + Parsing)
+│   ├── Data Processing Layer (Pandas + Technical Analysis)
+│   ├── Storage Layer (CSV Files + Database)
+│   ├── Machine Learning Layer (Scikit-learn)
+│   └── API Layer (FastAPI REST Endpoints)
+└── Frontend Application
+    ├── Web Interface (React/Vue.js)
+    ├── Chart Visualization (Chart.js/D3.js)
+    ├── Real-time Updates (WebSocket/SSE)
+    └── Responsive Design (CSS Framework)
 ```
 
 ### Key Architectural Principles
@@ -29,18 +35,18 @@ PSX AI Advisor
 
 ### 1. Data Acquisition Module (`data_acquisition.py`)
 
-**Purpose**: Download and extract stock data from PSX Closing Rate Summary PDF
+**Purpose**: Download and parse stock data from PSX Closing Rate Summary CSV
 
 **Key Functions**:
-- `download_daily_pdf(date)`: Download the Closing Rate Summary PDF for a specific date
-- `extract_stock_data(pdf_path)`: Extract OHLCV data from the PDF file
-- `parse_pdf_content(pdf_content)`: Parse PDF content to structured data
+- `download_daily_csv(date)`: Download the Closing Rate Summary CSV for a specific date
+- `parse_stock_data(csv_path)`: Parse OHLCV data from the CSV file
+- `validate_csv_format(csv_content)`: Validate CSV structure and data types
 - `retry_with_backoff(func, max_retries=3)`: Retry mechanism for network failures
 
 **Dependencies**: 
 - Requests for HTTP operations
-- PyPDF2 or pdfplumber for PDF parsing
-- Pandas for data structuring
+- Pandas for CSV parsing and data structuring
+- IO utilities for file handling
 
 **Interface**:
 ```python
@@ -49,8 +55,8 @@ class PSXDataAcquisition:
         self.base_url = base_url
         self.downloads_url = f"{base_url}/downloads"
     
-    def download_daily_pdf(self, date: str = None) -> str
-    def extract_stock_data(self, pdf_path: str) -> pd.DataFrame
+    def download_daily_csv(self, date: str = None) -> str
+    def parse_stock_data(self, csv_path: str) -> pd.DataFrame
     def get_all_stock_data(self, date: str = None) -> pd.DataFrame
 ```
 
@@ -224,7 +230,7 @@ class ModelTrainingError(PSXAdvisorError):
 
 ### Unit Testing
 
-- **Data Acquisition Tests**: Mock PDF downloads, test PDF parsing logic
+- **Data Acquisition Tests**: Mock CSV downloads, test CSV parsing logic
 - **Technical Analysis Tests**: Verify indicator calculations against known values
 - **Storage Tests**: Test CSV read/write operations, data integrity
 - **ML Tests**: Test feature preparation, model training with synthetic data
@@ -239,7 +245,7 @@ class ModelTrainingError(PSXAdvisorError):
 
 - Use historical PSX data samples for realistic testing
 - Create synthetic data for edge cases
-- Mock external dependencies (PDF downloads) for reliable testing
+- Mock external dependencies (CSV downloads) for reliable testing
 
 ## Configuration Management
 
@@ -249,7 +255,7 @@ class ModelTrainingError(PSXAdvisorError):
 data_sources:
   psx_base_url: "https://dps.psx.com.pk"
   downloads_endpoint: "/downloads"
-  pdf_filename_pattern: "closing_rates/{date}.pdf"
+  csv_filename_pattern: "closing_rates/{date}.csv"
 
 technical_indicators:
   sma_periods: [50, 200]
@@ -304,9 +310,9 @@ performance:
 ## Performance Optimization
 
 ### Data Acquisition Performance
-- Efficient PDF download and caching
-- Optimized PDF parsing with appropriate libraries
-- Cache daily PDF files to avoid re-downloading
+- Efficient CSV download and caching
+- Optimized CSV parsing with pandas
+- Cache daily CSV files to avoid re-downloading
 
 ### Data Processing Performance
 - Vectorized operations with Pandas/NumPy
@@ -328,7 +334,7 @@ performance:
 
 ### Installation Process
 1. Clone repository
-2. Install dependencies: `pip install -r requirements.txt` (includes requests, pandas, pdfplumber, pandas-ta, scikit-learn)
+2. Install Python dependencies: `pip install -r requirements.txt` (includes fastapi, uvicorn, requests, pandas, pandas-ta, scikit-learn)
 3. Configure settings in `config.yaml`
 4. Run initial setup: `python setup.py`
 5. Execute daily analysis: `python main.py`
