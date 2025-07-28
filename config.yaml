@@ -14,9 +14,12 @@ technical_indicators:
 machine_learning:
   model_type: "RandomForest"
   min_training_samples: 200
-  test_size: 0.2
+  test_size: 0.2  # Still used for reference, but TimeSeriesSplit determines actual split
   random_state: 42
   n_estimators: 100
+  # Time-series cross-validation parameters
+  n_splits: 5  # Number of time-series splits for cross-validation
+  max_train_size: null  # Maximum training set size (null = no limit)
 
 storage:
   data_directory: "data"

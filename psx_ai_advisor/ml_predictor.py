@@ -14,7 +14,7 @@ from typing import Dict, Any, Tuple, Optional, List
 import logging
 from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, TimeSeriesSplit
 from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
 from sklearn.preprocessing import StandardScaler
 import warnings
@@ -70,6 +70,10 @@ class MLPredictor:
         self.test_size = self.ml_config.get('test_size', 0.2)
         self.random_state = self.ml_config.get('random_state', 42)
         self.n_estimators = self.ml_config.get('n_estimators', 100)
+        
+        # Time series cross-validation parameters
+        self.n_splits = self.ml_config.get('n_splits', 5)  # Number of folds for TimeSeriesSplit
+        self.max_train_size = self.ml_config.get('max_train_size', None)  # Maximum training set size
         
         # Storage setup
         self.data_dir = self.storage_config.get('data_directory', 'data')
@@ -218,13 +222,28 @@ class MLPredictor:
             if stock_data.empty:
                 raise InsufficientDataError(f"No data available for symbol: {symbol}")
             
+            # Ensure data is sorted by date for time-series split
+            if 'Date' in stock_data.columns:
+                stock_data = stock_data.sort_values('Date').reset_index(drop=True)
+                logger.info("Data sorted by date for time-series aware splitting")
+            else:
+                logger.warning("No Date column found, assuming data is already chronologically sorted")
+            
             # Prepare features and target
             X, y = self.prepare_features(stock_data)
             
-            # Split data into training and testing sets
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=self.test_size, random_state=self.random_state, stratify=y
-            )
+            # Use TimeSeriesSplit for time-series aware cross-validation
+            tscv = TimeSeriesSplit(n_splits=self.n_splits, max_train_size=self.max_train_size)
+            
+            # Get the last split for final training (largest training set)
+            splits = list(tscv.split(X))
+            train_idx, test_idx = splits[-1]  # Use the last split which has the most training data
+            
+            X_train, X_test = X[train_idx], X[test_idx]
+            y_train, y_test = y[train_idx], y[test_idx]
+            
+            logger.info(f"TimeSeriesSplit - Training samples: {len(X_train)}, Test samples: {len(X_test)}")
+            logger.info(f"Training period: indices {train_idx[0]}-{train_idx[-1]}, Test period: indices {test_idx[0]}-{test_idx[-1]}")
             
             # Scale features
             scaler = StandardScaler()
@@ -247,10 +266,13 @@ class MLPredictor:
             y_pred = model.predict(X_test_scaled)
             y_pred_proba = model.predict_proba(X_test_scaled)
             
-            # Calculate metrics
+            # Calculate metrics on final test set
             accuracy = accuracy_score(y_test, y_pred)
             precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
             recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+            
+            # Perform time-series cross-validation for more robust evaluation
+            cv_scores = self._perform_time_series_cv(X, y, tscv)
             
             # Feature importance
             feature_importance = dict(zip(self.feature_columns, model.feature_importances_))
@@ -275,6 +297,7 @@ class MLPredictor:
                 'accuracy': float(accuracy),
                 'precision': float(precision),
                 'recall': float(recall),
+                'cv_scores': cv_scores,  # Time-series cross-validation results
                 'feature_count': len(self.feature_columns),
                 'top_features': top_features,
                 'class_distribution': {
@@ -286,12 +309,19 @@ class MLPredictor:
                     'max_depth': 10,
                     'min_samples_split': 5,
                     'min_samples_leaf': 2
+                },
+                'time_series_split_info': {
+                    'n_splits': self.n_splits,
+                    'max_train_size': self.max_train_size,
+                    'data_sorted_by_date': 'Date' in stock_data.columns
                 }
             }
             
             logger.info(f"Model training completed for {symbol}")
-            logger.info(f"Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+            logger.info(f"Final test accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+            logger.info(f"CV Mean accuracy: {cv_scores.get('mean_accuracy', 0):.4f} ± {cv_scores.get('std_accuracy', 0):.4f}")
             logger.info(f"Top features: {[f[0] for f in top_features]}")
+            logger.info("Time-series aware cross-validation completed - no lookahead bias")
             
             return training_results
             
@@ -405,6 +435,94 @@ class MLPredictor:
             else:
                 raise MLPredictorError(f"Prediction failed for {symbol}: {e}")
     
+    def _perform_time_series_cv(self, X: np.ndarray, y: np.ndarray, tscv: TimeSeriesSplit) -> Dict[str, Any]:
+        """
+        Perform time-series cross-validation to get robust performance estimates.
+        
+        Args:
+            X (np.ndarray): Feature matrix
+            y (np.ndarray): Target variable
+            tscv (TimeSeriesSplit): Time series cross-validator
+            
+        Returns:
+            Dict[str, Any]: Cross-validation scores and statistics
+        """
+        cv_accuracies = []
+        cv_precisions = []
+        cv_recalls = []
+        
+        try:
+            for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
+                # Split data for this fold
+                X_train_fold = X[train_idx]
+                X_test_fold = X[test_idx]
+                y_train_fold = y[train_idx]
+                y_test_fold = y[test_idx]
+                
+                # Scale features for this fold
+                scaler_fold = StandardScaler()
+                X_train_fold_scaled = scaler_fold.fit_transform(X_train_fold)
+                X_test_fold_scaled = scaler_fold.transform(X_test_fold)
+                
+                # Train model for this fold
+                model_fold = RandomForestClassifier(
+                    n_estimators=self.n_estimators,
+                    random_state=self.random_state,
+                    max_depth=10,
+                    min_samples_split=5,
+                    min_samples_leaf=2,
+                    n_jobs=-1
+                )
+                
+                model_fold.fit(X_train_fold_scaled, y_train_fold)
+                
+                # Make predictions
+                y_pred_fold = model_fold.predict(X_test_fold_scaled)
+                
+                # Calculate metrics
+                accuracy_fold = accuracy_score(y_test_fold, y_pred_fold)
+                precision_fold = precision_score(y_test_fold, y_pred_fold, average='weighted', zero_division=0)
+                recall_fold = recall_score(y_test_fold, y_pred_fold, average='weighted', zero_division=0)
+                
+                cv_accuracies.append(accuracy_fold)
+                cv_precisions.append(precision_fold)
+                cv_recalls.append(recall_fold)
+                
+                logger.debug(f"Fold {fold + 1}: Accuracy={accuracy_fold:.4f}, Precision={precision_fold:.4f}, Recall={recall_fold:.4f}")
+            
+            # Calculate cross-validation statistics
+            cv_results = {
+                'mean_accuracy': float(np.mean(cv_accuracies)),
+                'std_accuracy': float(np.std(cv_accuracies)),
+                'mean_precision': float(np.mean(cv_precisions)),
+                'std_precision': float(np.std(cv_precisions)),
+                'mean_recall': float(np.mean(cv_recalls)),
+                'std_recall': float(np.std(cv_recalls)),
+                'individual_scores': {
+                    'accuracies': [float(x) for x in cv_accuracies],
+                    'precisions': [float(x) for x in cv_precisions],
+                    'recalls': [float(x) for x in cv_recalls]
+                },
+                'n_folds': len(cv_accuracies)
+            }
+            
+            logger.info(f"Time-series CV completed: Mean accuracy = {cv_results['mean_accuracy']:.4f} ± {cv_results['std_accuracy']:.4f}")
+            
+            return cv_results
+            
+        except Exception as e:
+            logger.warning(f"Error during time-series cross-validation: {e}")
+            return {
+                'error': str(e),
+                'n_folds': 0,
+                'mean_accuracy': 0.0,
+                'std_accuracy': 0.0,
+                'mean_precision': 0.0,
+                'std_precision': 0.0,
+                'mean_recall': 0.0,
+                'std_recall': 0.0
+            }
+
     def _calculate_recent_accuracy(self, symbol: str, stock_data: pd.DataFrame, days: int = 30) -> Optional[float]:
         """
         Calculate model accuracy on recent data.
