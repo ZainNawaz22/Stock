@@ -84,7 +84,9 @@
   - Add prediction timestamp and current price information
   - _Requirements: 4.3, 4.4_
 
-- [-] 8. Create main application workflow and CLI interface
+- [x] 8. Create main application workflow and CLI interface
+
+
 
 
 
