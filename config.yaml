@@ -1,43 +1,39 @@
 data_sources:
-  psx_base_url: "https://dps.psx.com.pk"
-  downloads_endpoint: "/download/closing_rates"
-  pdf_filename_pattern: "{date}.pdf"
-
-technical_indicators:
-  sma_periods: [50, 200]
-  rsi_period: 14
-  macd:
-    fast: 12
-    slow: 26
-    signal: 9
-
-machine_learning:
-  model_type: "RandomForest"
-  min_training_samples: 200
-  test_size: 0.2  # Still used for reference, but TimeSeriesSplit determines actual split
-  random_state: 42
-  n_estimators: 100
-  # Time-series cross-validation parameters
-  n_splits: 5  # Number of time-series splits for cross-validation
-  max_train_size: null  # Maximum training set size (null = no limit)
-
-storage:
-  data_directory: "data"
-  backup_directory: "backups"
-  max_file_age_days: 365
-
+  downloads_endpoint: /download/closing_rates
+  pdf_filename_pattern: '{date}.pdf'
+  psx_base_url: https://dps.psx.com.pk
 logging:
-  level: "INFO"
-  file: "psx_advisor.log"
-  max_size_mb: 10
   backup_count: 5
-  console_output: true
-  console_level: "INFO"
+  console_level: INFO
+  console_output: false
   detailed_errors: true
-  log_directory: "logs"
-
+  file: psx_advisor.log
+  level: ERROR
+  log_directory: logs
+  max_size_mb: 10
+machine_learning:
+  max_train_size: null
+  min_training_samples: 50
+  model_type: RandomForest
+  n_estimators: 100
+  n_splits: 5
+  random_state: 42
+  test_size: 0.2
 performance:
   max_concurrent_requests: 5
   request_timeout: 30
   retry_attempts: 3
   retry_delay: 2
+storage:
+  backup_directory: backups
+  data_directory: data
+  max_file_age_days: 365
+technical_indicators:
+  macd:
+    fast: 12
+    signal: 9
+    slow: 26
+  rsi_period: 14
+  sma_periods:
+  - 50
+  - 200

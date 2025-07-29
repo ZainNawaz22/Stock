@@ -91,3 +91,19 @@ Traceback (most recent call last):
     raise ValueError("Simulated error for testing")
 ValueError: Simulated error for testing
 2025-07-29 16:38:27 | ERROR    | psx_ai_advisor.fallback_mechanisms | execute_with_fallback:121  | PID:24440 | No fallback strategy available for operation: no_fallback_operation
+2025-07-30 02:36:44 | ERROR    | api_server                | handle_api_error    :103  | PID:24872 | API error in get_predictions: 'Query' object has no attribute 'split'
+2025-07-30 02:57:06 | ERROR    | api_server                | internal_error_handler:576  | PID:29648 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 02:57:16 | ERROR    | api_server                | internal_error_handler:576  | PID:29648 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 02:58:14 | ERROR    | api_server                | internal_error_handler:576  | PID:29648 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 02:58:38 | ERROR    | api_server                | handle_api_error    :103  | PID:7036 | API error in get_stocks: 'Query' object has no attribute 'upper'
+2025-07-30 02:58:38 | ERROR    | api_server                | handle_api_error    :103  | PID:7036 | API error in get_stock_data for PTC: '>' not supported between instances of 'Query' and 'int'
+2025-07-30 02:58:38 | ERROR    | api_server                | handle_api_error    :103  | PID:7036 | API error in get_predictions: 'Query' object has no attribute 'split'
+2025-07-30 03:24:31 | ERROR    | api_server                | internal_error_handler:885  | PID:24856 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 03:25:31 | ERROR    | api_server                | internal_error_handler:890  | PID:21872 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 03:26:02 | ERROR    | api_server                | internal_error_handler:895  | PID:25280 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 03:26:35 | ERROR    | api_server                | internal_error_handler:896  | PID:12496 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 03:26:57 | ERROR    | api_server                | internal_error_handler:896  | PID:10992 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 03:27:20 | ERROR    | api_server                | internal_error_handler:896  | PID:11272 | Internal server error: Unable to serialize unknown type: <class 'numpy.int64'>
+2025-07-30 03:27:53 | ERROR    | api_server                | internal_error_handler:896  | PID:18804 | Internal server error: Unable to serialize unknown type: <class 'numpy.bool_'>
+2025-07-30 03:29:22 | ERROR    | api_server                | process_single_prediction:199  | PID:29436 | Error generating prediction for HBL: Prediction failed for HBL: Training failed for HBL: No data file found for symbol: HBL (Code: InsufficientDataError) (Code: InsufficientDataError) (Code: MLPredictorError)
+2025-07-30 03:51:28 | ERROR    | api_server                | process_single_prediction:199  | PID:22564 | Error generating prediction for HBL: Prediction failed for HBL: Training failed for HBL: No data file found for symbol: HBL (Code: InsufficientDataError) (Code: InsufficientDataError) (Code: MLPredictorError)

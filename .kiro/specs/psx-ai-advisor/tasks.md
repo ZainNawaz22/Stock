@@ -129,14 +129,24 @@
   - Add test data fixtures and mock external dependencies
   - _Requirements: 6.4_
 
-- [ ] 13. Add configuration management and system setup
+- [x] 13. Add configuration management and system setup
+
+
+
+
+
   - Create setup.py script for initial system configuration
   - Implement configuration validation and default value handling
   - Add environment-specific settings support
   - Create installation and setup documentation
   - _Requirements: 6.3_
 
-- [ ] 14. Create FastAPI backend server with REST endpoints
+- [x] 14. Create FastAPI backend server with REST endpoints
+
+
+
+
+
   - Implement FastAPI application with CORS configuration for frontend access
   - Create GET /api/stocks endpoint to return list of available stocks with basic info
   - Create GET /api/stocks/{symbol}/data endpoint to return OHLCV data with technical indicators
