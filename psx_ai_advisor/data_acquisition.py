@@ -6,31 +6,15 @@ Handles downloading and parsing stock data from PSX Closing Rate Summary CSV fil
 import requests
 import os
 import time
-import logging
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from .config_loader import get_section, get_value
-
-
-class PSXDataAcquisitionError(Exception):
-    """Base exception for data acquisition errors"""
-    pass
-
-
-class NetworkError(PSXDataAcquisitionError):
-    """Raised when network operations fail"""
-    pass
-
-
-class CSVDownloadError(PSXDataAcquisitionError):
-    """Raised when CSV download fails"""
-    pass
-
-
-class CSVParsingError(PSXDataAcquisitionError):
-    """Raised when CSV parsing fails"""
-    pass
+from .exceptions import (
+    DataScrapingError, NetworkError, CSVDownloadError, CSVParsingError,
+    create_error_context
+)
+from .logging_config import get_logger, log_exception, create_operation_logger
 
 
 class PSXDataAcquisition:
@@ -53,7 +37,7 @@ class PSXDataAcquisition:
         self.retry_delay = self.performance_config.get('retry_delay', 2)
         
         # Setup logging
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # Create data directory if it doesn't exist
         self.data_dir = get_value('storage', 'data_directory', 'data')
@@ -179,31 +163,54 @@ class PSXDataAcquisition:
             CSVDownloadError: If CSV download fails
             NetworkError: If network operations fail after retries
         """
-        try:
-            # Generate URL and local file path
-            csv_url = self._get_csv_url(date)
-            filename = self._get_csv_filename(date)
-            local_path = os.path.join(self.data_dir, filename)
+        operation_name = "download_daily_csv"
+        context = create_error_context(operation_name, date=date)
+        
+        with create_operation_logger(operation_name) as op_logger:
+            op_logger.add_context(date=date)
             
-            # Check if file already exists
-            if os.path.exists(local_path):
-                self.logger.info(f"CSV already exists: {local_path}")
+            try:
+                # Generate URL and local file path
+                csv_url = self._get_csv_url(date)
+                filename = self._get_csv_filename(date)
+                local_path = os.path.join(self.data_dir, filename)
+                
+                op_logger.add_context(csv_url=csv_url, local_path=local_path)
+                
+                # Check if file already exists
+                if os.path.exists(local_path):
+                    self.logger.info(f"CSV already exists: {local_path}")
+                    op_logger.log_progress("File already exists, skipping download")
+                    return local_path
+                
+                op_logger.log_progress("Starting CSV download with retry mechanism")
+                
+                # Download with retry mechanism
+                self._retry_with_backoff(self._download_file, csv_url, local_path)
+                
+                op_logger.log_progress("CSV download completed successfully")
                 return local_path
-            
-            # Download with retry mechanism
-            self._retry_with_backoff(self._download_file, csv_url, local_path)
-            
-            return local_path
-            
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise CSVDownloadError(f"CSV not found for date {date}. It may not be available yet.")
-            else:
-                raise CSVDownloadError(f"HTTP error downloading CSV: {e}")
-        except requests.RequestException as e:
-            raise NetworkError(f"Network error downloading CSV: {e}")
-        except Exception as e:
-            raise CSVDownloadError(f"Unexpected error downloading CSV: {e}")
+                
+            except requests.HTTPError as e:
+                error_context = {**context, 'http_status': e.response.status_code if e.response else None}
+                if e.response and e.response.status_code == 404:
+                    error_msg = f"CSV not found for date {date}. It may not be available yet."
+                    exc = CSVDownloadError(error_msg, 'CSV_NOT_FOUND', error_context)
+                else:
+                    error_msg = f"HTTP error downloading CSV: {e}"
+                    exc = CSVDownloadError(error_msg, 'HTTP_ERROR', error_context)
+                log_exception(self.logger, exc, error_context, operation_name)
+                raise exc
+            except requests.RequestException as e:
+                error_context = {**context, 'request_error': str(e)}
+                exc = NetworkError(f"Network error downloading CSV: {e}", 'NETWORK_ERROR', error_context)
+                log_exception(self.logger, exc, error_context, operation_name)
+                raise exc
+            except Exception as e:
+                error_context = {**context, 'unexpected_error': str(e)}
+                exc = CSVDownloadError(f"Unexpected error downloading CSV: {e}", 'UNEXPECTED_ERROR', error_context)
+                log_exception(self.logger, exc, error_context, operation_name)
+                raise exc
     
     def get_available_dates(self, days_back: int = 7) -> list:
         """
@@ -341,115 +348,166 @@ class PSXDataAcquisition:
             CSVParsingError: If CSV parsing fails
             FileNotFoundError: If CSV file doesn't exist
         """
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError(f"CSV file not found: {csv_path}")
+        operation_name = "parse_stock_data"
+        context = create_error_context(operation_name, csv_path=csv_path)
         
-        try:
-            self.logger.info(f"Parsing stock data from: {csv_path}")
+        if not os.path.exists(csv_path):
+            exc = FileNotFoundError(f"CSV file not found: {csv_path}")
+            log_exception(self.logger, exc, context, operation_name)
+            raise exc
+        
+        with create_operation_logger(operation_name) as op_logger:
+            op_logger.add_context(csv_path=csv_path)
             
-            # Try different encodings
-            encodings = ['utf-8', 'latin-1', 'cp1252']
-            df = None
-            
-            for encoding in encodings:
+            try:
+                self.logger.info(f"Parsing stock data from: {csv_path}")
+                op_logger.log_progress("Starting CSV parsing with multiple encoding attempts")
+                
+                # Try different encodings
+                encodings = ['utf-8', 'latin-1', 'cp1252']
+                df = None
+                successful_encoding = None
+                
+                for encoding in encodings:
+                    try:
+                        df = pd.read_csv(csv_path, encoding=encoding)
+                        successful_encoding = encoding
+                        self.logger.info(f"Successfully read CSV with {encoding} encoding")
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                    except Exception as e:
+                        self.logger.warning(f"Failed to read CSV with {encoding}: {e}")
+                        continue
+                
+                if df is None:
+                    error_context = {**context, 'attempted_encodings': encodings}
+                    exc = CSVParsingError("Could not read CSV file with any supported encoding", 'ENCODING_ERROR', error_context)
+                    log_exception(self.logger, exc, error_context, operation_name)
+                    raise exc
+                
+                if len(df) == 0:
+                    error_context = {**context, 'encoding_used': successful_encoding}
+                    exc = CSVParsingError("CSV file contains no data", 'EMPTY_FILE', error_context)
+                    log_exception(self.logger, exc, error_context, operation_name)
+                    raise exc
+                
+                op_logger.log_progress(f"CSV read successfully", rows=len(df), columns=len(df.columns), encoding=successful_encoding)
+                self.logger.info(f"Read CSV with {len(df)} rows and {len(df.columns)} columns")
+                self.logger.info(f"Columns: {list(df.columns)}")
+                
+                # Check if this is the expected format: Date,Open,High,Low,Close,Volume,Dividends,Stock Splits,Capital Gains
+                expected_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+                
+                # Verify we have the required OHLCV columns
+                missing_columns = [col for col in expected_columns if col not in df.columns]
+                if missing_columns:
+                    error_context = {**context, 'missing_columns': missing_columns, 'found_columns': list(df.columns)}
+                    exc = CSVParsingError(f"CSV missing required columns: {missing_columns}. Found columns: {list(df.columns)}", 'MISSING_COLUMNS', error_context)
+                    log_exception(self.logger, exc, error_context, operation_name)
+                    raise exc
+                
+                op_logger.log_progress("Column validation passed, processing data")
+                
+                # Keep only the columns we need for technical analysis (ignore Dividends, Stock Splits, Capital Gains)
+                columns_to_keep = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+                df = df[columns_to_keep].copy()
+                
+                # Convert Date column to datetime and remove timezone info for consistency
                 try:
-                    df = pd.read_csv(csv_path, encoding=encoding)
-                    self.logger.info(f"Successfully read CSV with {encoding} encoding")
-                    break
-                except UnicodeDecodeError:
-                    continue
+                    df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
                 except Exception as e:
-                    self.logger.warning(f"Failed to read CSV with {encoding}: {e}")
-                    continue
-            
-            if df is None:
-                raise CSVParsingError("Could not read CSV file with any supported encoding")
-            
-            if len(df) == 0:
-                raise CSVParsingError("CSV file contains no data")
-            
-            self.logger.info(f"Read CSV with {len(df)} rows and {len(df.columns)} columns")
-            self.logger.info(f"Columns: {list(df.columns)}")
-            
-            # Check if this is the expected format: Date,Open,High,Low,Close,Volume,Dividends,Stock Splits,Capital Gains
-            expected_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
-            
-            # Verify we have the required OHLCV columns
-            missing_columns = [col for col in expected_columns if col not in df.columns]
-            if missing_columns:
-                raise CSVParsingError(f"CSV missing required columns: {missing_columns}. Found columns: {list(df.columns)}")
-            
-            # Keep only the columns we need for technical analysis (ignore Dividends, Stock Splits, Capital Gains)
-            columns_to_keep = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
-            df = df[columns_to_keep].copy()
-            
-            # Convert Date column to datetime and remove timezone info for consistency
-            df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
-            
-            # Data validation and type conversion for OHLCV columns
-            numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-            for col in numeric_columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            # Remove rows with invalid data
-            initial_count = len(df)
-            df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-            final_count = len(df)
-            
-            if initial_count != final_count:
-                self.logger.warning(f"Removed {initial_count - final_count} rows with invalid data")
-            
-            # Additional data validation
-            # Remove rows where High < Low or Close <= 0
-            df = df[
-                (df['High'] >= df['Low']) & 
-                (df['Close'] > 0) & 
-                (df['Open'] > 0) & 
-                (df['Volume'] >= 0)
-            ]
-            
-            # Extract symbol from filename (e.g., ABL_historical_data.csv -> ABL)
-            filename = os.path.basename(csv_path)
-            if '_historical_data.csv' in filename:
-                symbol = filename.replace('_historical_data.csv', '')
-            else:
-                # Fallback: try to extract symbol from filename
-                import re
-                symbol_match = re.search(r'([A-Z]+)', filename)
-                symbol = symbol_match.group(1) if symbol_match else 'UNKNOWN'
-            
-            # Add Symbol column
-            df['Symbol'] = symbol
-            
-            # Add Company_Name (use Symbol as placeholder)
-            df['Company_Name'] = symbol
-            
-            # Calculate Previous_Close and Change
-            df = df.sort_values('Date').reset_index(drop=True)
-            df['Previous_Close'] = df['Close'].shift(1)
-            df['Change'] = df['Close'] - df['Previous_Close']
-            
-            # Fill first row's Previous_Close with Close value
-            df.loc[0, 'Previous_Close'] = df.loc[0, 'Close']
-            df.loc[0, 'Change'] = 0.0
-            
-            # Reorder columns
-            column_order = ['Date', 'Symbol', 'Company_Name', 'Open', 'High', 'Low', 'Close', 'Volume', 'Previous_Close', 'Change']
-            df = df[column_order]
-            
-            # Sort by date (most recent first)
-            df = df.sort_values('Date', ascending=False).reset_index(drop=True)
-            
-            self.logger.info(f"Successfully parsed {len(df)} records for stock {symbol}")
-            self.logger.info(f"Date range: {df['Date'].min()} to {df['Date'].max()}")
-            
-            return df
-            
-        except Exception as e:
-            if isinstance(e, (CSVParsingError, FileNotFoundError)):
-                raise
-            else:
-                raise CSVParsingError(f"Error parsing stock data from CSV: {e}")
+                    error_context = {**context, 'date_conversion_error': str(e)}
+                    exc = CSVParsingError(f"Error converting Date column: {e}", 'DATE_CONVERSION_ERROR', error_context)
+                    log_exception(self.logger, exc, error_context, operation_name)
+                    raise exc
+                
+                # Data validation and type conversion for OHLCV columns
+                numeric_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+                for col in numeric_columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+                # Remove rows with invalid data
+                initial_count = len(df)
+                df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                final_count = len(df)
+                
+                if initial_count != final_count:
+                    removed_count = initial_count - final_count
+                    self.logger.warning(f"Removed {removed_count} rows with invalid data")
+                    op_logger.log_progress(f"Data cleaning completed", removed_invalid_rows=removed_count)
+                
+                # Additional data validation
+                # Remove rows where High < Low or Close <= 0
+                validation_filter = (
+                    (df['High'] >= df['Low']) & 
+                    (df['Close'] > 0) & 
+                    (df['Open'] > 0) & 
+                    (df['Volume'] >= 0)
+                )
+                
+                pre_validation_count = len(df)
+                df = df[validation_filter]
+                post_validation_count = len(df)
+                
+                if pre_validation_count != post_validation_count:
+                    validation_removed = pre_validation_count - post_validation_count
+                    self.logger.warning(f"Removed {validation_removed} rows failing business logic validation")
+                    op_logger.log_progress("Business logic validation completed", removed_invalid_rows=validation_removed)
+                
+                # Extract symbol from filename (e.g., ABL_historical_data.csv -> ABL)
+                filename = os.path.basename(csv_path)
+                if '_historical_data.csv' in filename:
+                    symbol = filename.replace('_historical_data.csv', '')
+                else:
+                    # Fallback: try to extract symbol from filename
+                    import re
+                    symbol_match = re.search(r'([A-Z]+)', filename)
+                    symbol = symbol_match.group(1) if symbol_match else 'UNKNOWN'
+                
+                op_logger.add_context(symbol=symbol)
+                
+                # Add Symbol column
+                df['Symbol'] = symbol
+                
+                # Add Company_Name (use Symbol as placeholder)
+                df['Company_Name'] = symbol
+                
+                # Calculate Previous_Close and Change
+                df = df.sort_values('Date').reset_index(drop=True)
+                df['Previous_Close'] = df['Close'].shift(1)
+                df['Change'] = df['Close'] - df['Previous_Close']
+                
+                # Fill first row's Previous_Close with Close value
+                df.loc[0, 'Previous_Close'] = df.loc[0, 'Close']
+                df.loc[0, 'Change'] = 0.0
+                
+                # Reorder columns
+                column_order = ['Date', 'Symbol', 'Company_Name', 'Open', 'High', 'Low', 'Close', 'Volume', 'Previous_Close', 'Change']
+                df = df[column_order]
+                
+                # Sort by date (most recent first)
+                df = df.sort_values('Date', ascending=False).reset_index(drop=True)
+                
+                date_range = f"{df['Date'].min()} to {df['Date'].max()}"
+                self.logger.info(f"Successfully parsed {len(df)} records for stock {symbol}")
+                self.logger.info(f"Date range: {date_range}")
+                
+                op_logger.log_progress("Parsing completed successfully", 
+                                     final_record_count=len(df), 
+                                     symbol=symbol, 
+                                     date_range=date_range)
+                
+                return df
+                
+            except Exception as e:
+                if isinstance(e, (CSVParsingError, FileNotFoundError)):
+                    raise
+                else:
+                    error_context = {**context, 'unexpected_error': str(e)}
+                    exc = CSVParsingError(f"Error parsing stock data from CSV: {e}", 'UNEXPECTED_PARSING_ERROR', error_context)
+                    log_exception(self.logger, exc, error_context, operation_name)
+                    raise exc
     
     def get_all_stock_data(self, date: Optional[str] = None, csv_path: Optional[str] = None) -> pd.DataFrame:
         """

@@ -11,7 +11,6 @@ import pickle
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Tuple, Optional, List
-import logging
 from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, TimeSeriesSplit
@@ -22,27 +21,17 @@ import warnings
 from .config_loader import get_section, get_value
 from .data_storage import DataStorage
 from .technical_analysis import TechnicalAnalyzer
+from .exceptions import (
+    MLPredictorError, InsufficientDataError, ModelTrainingError, 
+    ModelPersistenceError, ValidationError, create_error_context
+)
+from .logging_config import get_logger, log_exception, create_operation_logger
 
 # Suppress sklearn warnings
 warnings.filterwarnings('ignore', category=UserWarning)
 
 # Set up logging
-logger = logging.getLogger(__name__)
-
-
-class MLPredictorError(Exception):
-    """Base exception for ML predictor errors"""
-    pass
-
-
-class InsufficientDataError(MLPredictorError):
-    """Raised when there's insufficient data for model training"""
-    pass
-
-
-class ModelTrainingError(MLPredictorError):
-    """Raised when model training fails"""
-    pass
+logger = get_logger(__name__)
 
 
 class MLPredictor:

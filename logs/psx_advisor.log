@@ -1,0 +1,112 @@
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.logging_config | setup_logging       :153  | Logging system configured successfully
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.logging_config | setup_logging       :154  | Log level: INFO
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.logging_config | setup_logging       :155  | Log directory: logs
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.logging_config | setup_logging       :156  | Console output: True
+2025-07-29 16:38:27 | INFO     | __main__                  | test_logging_setup  :32   | This is an info message
+2025-07-29 16:38:27 | WARNING  | __main__                  | test_logging_setup  :33   | This is a warning message
+2025-07-29 16:38:27 | ERROR    | __main__                  | test_logging_setup  :34   | This is an error message
+2025-07-29 16:38:27 | CRITICAL | __main__                  | test_logging_setup  :35   | This is a critical message
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: PSXAdvisorError - Base PSX Advisor error (Code: TEST_PSXADVISORERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.421863', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.PSXAdvisorError: Base PSX Advisor error (Code: TEST_PSXADVISORERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.421863', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: DataScrapingError - Data scraping failed (Code: TEST_DATASCRAPINGERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.423970', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.DataScrapingError: Data scraping failed (Code: TEST_DATASCRAPINGERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.423970', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: NetworkError - Network connection failed (Code: TEST_NETWORKERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.425802', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.NetworkError: Network connection failed (Code: TEST_NETWORKERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.425802', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: CSVDownloadError - CSV download failed (Code: TEST_CSVDOWNLOADERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.427616', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.CSVDownloadError: CSV download failed (Code: TEST_CSVDOWNLOADERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.427616', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: CSVParsingError - CSV parsing failed (Code: TEST_CSVPARSINGERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.430041', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.CSVParsingError: CSV parsing failed (Code: TEST_CSVPARSINGERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.430041', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: DataStorageError - Data storage failed (Code: TEST_DATASTORAGEERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.436252', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.DataStorageError: Data storage failed (Code: TEST_DATASTORAGEERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.436252', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: DataIntegrityError - Data integrity check failed (Code: TEST_DATAINTEGRITYERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.439468', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.DataIntegrityError: Data integrity check failed (Code: TEST_DATAINTEGRITYERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.439468', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: TechnicalAnalysisError - Technical analysis failed (Code: TEST_TECHNICALANALYSISERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.442303', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.TechnicalAnalysisError: Technical analysis failed (Code: TEST_TECHNICALANALYSISERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.442303', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: InsufficientDataError - Insufficient data for analysis (Code: TEST_INSUFFICIENTDATAERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.445181', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.InsufficientDataError: Insufficient data for analysis (Code: TEST_INSUFFICIENTDATAERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.445181', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: MLPredictorError - ML prediction failed (Code: TEST_MLPREDICTORERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.452243', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.MLPredictorError: ML prediction failed (Code: TEST_MLPREDICTORERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.452243', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: ModelTrainingError - Model training failed (Code: TEST_MODELTRAININGERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.454882', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.ModelTrainingError: Model training failed (Code: TEST_MODELTRAININGERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.454882', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: ModelPersistenceError - Model persistence failed (Code: TEST_MODELPERSISTENCEERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.457067', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.ModelPersistenceError: Model persistence failed (Code: TEST_MODELPERSISTENCEERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.457067', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: ConfigurationError - Configuration error (Code: TEST_CONFIGURATIONERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.459254', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.ConfigurationError: Configuration error (Code: TEST_CONFIGURATIONERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.459254', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: ValidationError - Validation failed (Code: TEST_VALIDATIONERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.461355', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.ValidationError: Validation failed (Code: TEST_VALIDATIONERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.461355', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: SystemError - System error occurred (Code: TEST_SYSTEMERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.463462', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.SystemError: System error occurred (Code: TEST_SYSTEMERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.463462', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: APIError - API error occurred (Code: TEST_APIERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.469068', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.APIError: API error occurred (Code: TEST_APIERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.469068', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | ERROR    | __main__                  | log_exception       :291  | Exception in test_operation: TimeoutError - Operation timed out (Code: TEST_TIMEOUTERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.472338', 'test_param': 'test_value'})
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 71, in test_custom_exceptions
+    raise exc
+psx_ai_advisor.exceptions.TimeoutError: Operation timed out (Code: TEST_TIMEOUTERROR, Details: {'operation': 'test_operation', 'timestamp': '2025-07-29T16:38:27.472338', 'test_param': 'test_value'})
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.operations | __enter__           :402  | Starting operation: test_successful_operation for symbol: TEST_SYMBOL
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.operations | log_progress        :431  | test_successful_operation: Operation in progress
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.operations | log_progress        :431  | test_successful_operation: Operation completed successfully
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.operations | __exit__            :415  | Completed operation: test_successful_operation in 0.177s for symbol: TEST_SYMBOL
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.operations | log_performance     :317  | Performance: test_successful_operation completed in 0.177s
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.operations | __enter__           :402  | Starting operation: test_failed_operation for symbol: TEST_SYMBOL
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.operations | log_progress        :431  | test_failed_operation: Operation starting
+2025-07-29 16:38:27 | ERROR    | psx_ai_advisor.operations | log_exception       :291  | Exception in test_failed_operation: ValueError - Simulated error for testing
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\test_error_handling.py", line 98, in test_operation_logger
+    raise ValueError("Simulated error for testing")
+ValueError: Simulated error for testing
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.fallback_mechanisms | _register_default_strategies:54   | Default fallback strategies registered
+2025-07-29 16:38:27 | WARNING  | psx_ai_advisor.fallback_mechanisms | execute_with_fallback:90   | Primary operation 'test_operation' failed: Function failed with param1=test_param, param2=test_param2
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.fallback_mechanisms | execute_with_fallback:98   | Executing fallback strategy for operation: test_operation
+2025-07-29 16:38:27 | INFO     | __main__                  | custom_fallback     :121  | Custom fallback executed
+2025-07-29 16:38:27 | INFO     | psx_ai_advisor.fallback_mechanisms | execute_with_fallback:110  | Fallback strategy succeeded for operation: test_operation
+2025-07-29 16:38:27 | WARNING  | psx_ai_advisor.fallback_mechanisms | execute_with_fallback:90   | Primary operation 'no_fallback_operation' failed: Function failed with param1=test_param, param2=None
+2025-07-29 16:38:27 | ERROR    | psx_ai_advisor.fallback_mechanisms | execute_with_fallback:121  | No fallback strategy available for operation: no_fallback_operation

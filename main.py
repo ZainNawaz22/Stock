@@ -10,7 +10,6 @@ and prediction generation.
 import sys
 import os
 import argparse
-import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import traceback
@@ -19,15 +18,18 @@ import traceback
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from psx_ai_advisor.config_loader import get_config, get_section, get_value
-from psx_ai_advisor.data_acquisition import PSXDataAcquisition, PSXDataAcquisitionError
-from psx_ai_advisor.data_storage import DataStorage, DataStorageError
+from psx_ai_advisor.data_acquisition import PSXDataAcquisition
+from psx_ai_advisor.data_storage import DataStorage
 from psx_ai_advisor.technical_analysis import TechnicalAnalyzer
-from psx_ai_advisor.ml_predictor import MLPredictor, MLPredictorError, InsufficientDataError
-
-
-class PSXAdvisorError(Exception):
-    """Base exception for PSX Advisor application"""
-    pass
+from psx_ai_advisor.ml_predictor import MLPredictor
+from psx_ai_advisor.exceptions import (
+    PSXAdvisorError, DataScrapingError, DataStorageError, 
+    InsufficientDataError, MLPredictorError, create_error_context
+)
+from psx_ai_advisor.logging_config import (
+    setup_logging, get_logger, log_exception, create_operation_logger
+)
+from psx_ai_advisor.fallback_mechanisms import execute_with_fallback, get_fallback_stats
 
 
 class PSXAdvisor:
@@ -38,68 +40,31 @@ class PSXAdvisor:
     def __init__(self):
         """Initialize the PSX Advisor application"""
         # Setup logging first
-        self._setup_logging()
+        setup_logging()
+        self.logger = get_logger(__name__)
         
-        # Initialize components
-        self.data_acquisition = PSXDataAcquisition()
-        self.data_storage = DataStorage()
-        self.technical_analyzer = TechnicalAnalyzer()
-        self.ml_predictor = MLPredictor()
-        
-        # Application state
-        self.predictions = {}
-        self.errors = []
-        
-        self.logger = logging.getLogger(__name__)
-        self.logger.info("PSX AI Advisor initialized")
-    
-    def _setup_logging(self) -> None:
-        """Setup logging configuration"""
+        # Initialize components with error handling
         try:
-            # Load logging configuration
-            logging_config = get_section('logging')
-            log_level = logging_config.get('level', 'INFO')
-            log_file = logging_config.get('file', 'psx_advisor.log')
-            max_size_mb = logging_config.get('max_size_mb', 10)
-            backup_count = logging_config.get('backup_count', 5)
+            self.data_acquisition = PSXDataAcquisition()
+            self.data_storage = DataStorage()
+            self.technical_analyzer = TechnicalAnalyzer()
+            self.ml_predictor = MLPredictor()
             
-            # Configure logging
-            log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            # Application state
+            self.predictions = {}
+            self.errors = []
             
-            # Setup file handler with rotation
-            from logging.handlers import RotatingFileHandler
-            file_handler = RotatingFileHandler(
-                log_file,
-                maxBytes=max_size_mb * 1024 * 1024,
-                backupCount=backup_count
-            )
-            file_handler.setFormatter(logging.Formatter(log_format))
-            
-            # Setup console handler
-            console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setFormatter(logging.Formatter(log_format))
-            
-            # Configure root logger
-            root_logger = logging.getLogger()
-            root_logger.setLevel(getattr(logging, log_level.upper()))
-            root_logger.addHandler(file_handler)
-            root_logger.addHandler(console_handler)
+            self.logger.info("PSX AI Advisor initialized successfully")
             
         except Exception as e:
-            # Fallback to basic logging if configuration fails
-            logging.basicConfig(
-                level=logging.INFO,
-                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                handlers=[
-                    logging.StreamHandler(sys.stdout),
-                    logging.FileHandler('psx_advisor.log')
-                ]
-            )
-            logging.getLogger(__name__).warning(f"Failed to setup advanced logging: {e}")
+            self.logger.error(f"Failed to initialize PSX Advisor: {e}")
+            raise PSXAdvisorError(f"Initialization failed: {e}")
+    
+
     
     def run_daily_analysis(self, date: Optional[str] = None, symbols: Optional[List[str]] = None) -> Dict[str, Any]:
         """
-        Execute the complete daily analysis workflow
+        Execute the complete daily analysis workflow with comprehensive error handling
         
         Args:
             date (str, optional): Date in YYYY-MM-DD format. Defaults to today.
@@ -108,92 +73,148 @@ class PSXAdvisor:
         Returns:
             Dict[str, Any]: Analysis results including predictions and summary
         """
-        self.logger.info("=" * 60)
-        self.logger.info("Starting PSX AI Advisor Daily Analysis")
-        self.logger.info("=" * 60)
+        operation_name = "run_daily_analysis"
+        context = create_error_context(operation_name, date=date, symbols_count=len(symbols) if symbols else None)
         
-        start_time = datetime.now()
-        analysis_results = {
-            'start_time': start_time.isoformat(),
-            'date': date or datetime.now().strftime('%Y-%m-%d'),
-            'symbols_analyzed': [],
-            'predictions': {},
-            'errors': [],
-            'summary': {}
-        }
-        
-        try:
-            # Step 1: Data Acquisition
-            self.logger.info("Step 1: Downloading and parsing stock data...")
-            stock_data = self._acquire_stock_data(date)
+        with create_operation_logger(operation_name) as op_logger:
+            op_logger.add_context(date=date, requested_symbols=symbols)
             
-            if stock_data.empty:
-                raise PSXAdvisorError("No stock data acquired")
+            self.logger.info("=" * 60)
+            self.logger.info("Starting PSX AI Advisor Daily Analysis")
+            self.logger.info("=" * 60)
             
-            # Step 2: Process individual stocks
-            available_symbols = self._get_symbols_to_process(stock_data, symbols)
-            self.logger.info(f"Processing {len(available_symbols)} symbols: {', '.join(available_symbols[:10])}{'...' if len(available_symbols) > 10 else ''}")
+            start_time = datetime.now()
+            analysis_results = {
+                'start_time': start_time.isoformat(),
+                'date': date or datetime.now().strftime('%Y-%m-%d'),
+                'symbols_analyzed': [],
+                'predictions': {},
+                'errors': [],
+                'summary': {},
+                'fallback_stats': {}
+            }
             
-            # Step 3: Process each symbol
-            for i, symbol in enumerate(available_symbols, 1):
-                try:
-                    self.logger.info(f"Processing {symbol} ({i}/{len(available_symbols)})...")
+            try:
+                # Step 1: Data Acquisition with fallback
+                op_logger.log_progress("Starting data acquisition")
+                stock_data = execute_with_fallback(
+                    'data_acquisition',
+                    self._acquire_stock_data,
+                    date,
+                    fallback_data={'date': date}
+                )
+                
+                if stock_data.empty:
+                    raise PSXAdvisorError("No stock data acquired", 'NO_DATA_ACQUIRED', context)
+                
+                op_logger.log_progress("Data acquisition completed", records_acquired=len(stock_data))
+                
+                # Step 2: Process individual stocks
+                available_symbols = self._get_symbols_to_process(stock_data, symbols)
+                op_logger.add_context(available_symbols_count=len(available_symbols))
+                
+                self.logger.info(f"Processing {len(available_symbols)} symbols: {', '.join(available_symbols[:10])}{'...' if len(available_symbols) > 10 else ''}")
+                op_logger.log_progress("Symbol processing started", symbols_to_process=len(available_symbols))
+                
+                # Step 3: Process each symbol with error isolation
+                successful_count = 0
+                for i, symbol in enumerate(available_symbols, 1):
+                    symbol_context = create_error_context(f"process_symbol_{symbol}", symbol=symbol)
                     
-                    # Get symbol-specific data
-                    symbol_data = stock_data[stock_data['Symbol'] == symbol].copy()
-                    
-                    if symbol_data.empty:
-                        self.logger.warning(f"No data found for symbol: {symbol}")
+                    try:
+                        self.logger.info(f"Processing {symbol} ({i}/{len(available_symbols)})...")
+                        
+                        # Get symbol-specific data
+                        symbol_data = stock_data[stock_data['Symbol'] == symbol].copy()
+                        
+                        if symbol_data.empty:
+                            self.logger.warning(f"No data found for symbol: {symbol}")
+                            continue
+                        
+                        # Process this symbol with fallback support
+                        prediction_result = execute_with_fallback(
+                            'symbol_processing',
+                            self._process_symbol,
+                            symbol,
+                            symbol_data,
+                            fallback_data={'symbol': symbol, 'data_available': True}
+                        )
+                        
+                        if prediction_result:
+                            analysis_results['predictions'][symbol] = prediction_result
+                            analysis_results['symbols_analyzed'].append(symbol)
+                            successful_count += 1
+                            
+                            confidence_display = f"{prediction_result['confidence']:.3f}"
+                            self.logger.info(f"✓ {symbol}: {prediction_result['prediction']} (confidence: {confidence_display})")
+                        
+                    except Exception as e:
+                        error_msg = f"Error processing {symbol}: {str(e)}"
+                        log_exception(self.logger, e, symbol_context, f"process_symbol_{symbol}")
+                        
+                        analysis_results['errors'].append({
+                            'symbol': symbol,
+                            'error': error_msg,
+                            'error_type': type(e).__name__,
+                            'timestamp': datetime.now().isoformat()
+                        })
                         continue
-                    
-                    # Process this symbol
-                    prediction_result = self._process_symbol(symbol, symbol_data)
-                    
-                    if prediction_result:
-                        analysis_results['predictions'][symbol] = prediction_result
-                        analysis_results['symbols_analyzed'].append(symbol)
-                        self.logger.info(f"✓ {symbol}: {prediction_result['prediction']} (confidence: {prediction_result['confidence']:.3f})")
-                    
-                except Exception as e:
-                    error_msg = f"Error processing {symbol}: {str(e)}"
-                    self.logger.error(error_msg)
-                    analysis_results['errors'].append({
-                        'symbol': symbol,
-                        'error': error_msg,
-                        'timestamp': datetime.now().isoformat()
-                    })
-                    continue
-            
-            # Step 4: Generate summary
-            analysis_results['summary'] = self._generate_summary(analysis_results)
-            
-            # Calculate execution time
-            end_time = datetime.now()
-            execution_time = (end_time - start_time).total_seconds()
-            analysis_results['end_time'] = end_time.isoformat()
-            analysis_results['execution_time_seconds'] = execution_time
-            
-            self.logger.info("=" * 60)
-            self.logger.info("Daily Analysis Completed Successfully")
-            self.logger.info(f"Processed: {len(analysis_results['symbols_analyzed'])} symbols")
-            self.logger.info(f"Errors: {len(analysis_results['errors'])}")
-            self.logger.info(f"Execution time: {execution_time:.2f} seconds")
-            self.logger.info("=" * 60)
-            
-            return analysis_results
-            
-        except Exception as e:
-            error_msg = f"Daily analysis failed: {str(e)}"
-            self.logger.error(error_msg)
-            self.logger.error(traceback.format_exc())
-            
-            analysis_results['errors'].append({
-                'error': error_msg,
-                'timestamp': datetime.now().isoformat(),
-                'traceback': traceback.format_exc()
-            })
-            
-            return analysis_results
+                
+                op_logger.log_progress("Symbol processing completed", 
+                                     successful_symbols=successful_count,
+                                     failed_symbols=len(analysis_results['errors']))
+                
+                # Step 4: Generate summary
+                analysis_results['summary'] = self._generate_summary(analysis_results)
+                
+                # Step 5: Add fallback statistics
+                analysis_results['fallback_stats'] = get_fallback_stats()
+                
+                # Calculate execution time
+                end_time = datetime.now()
+                execution_time = (end_time - start_time).total_seconds()
+                analysis_results['end_time'] = end_time.isoformat()
+                analysis_results['execution_time_seconds'] = execution_time
+                
+                # Log completion
+                self.logger.info("=" * 60)
+                self.logger.info("Daily Analysis Completed Successfully")
+                self.logger.info(f"Processed: {len(analysis_results['symbols_analyzed'])} symbols")
+                self.logger.info(f"Errors: {len(analysis_results['errors'])}")
+                self.logger.info(f"Execution time: {execution_time:.2f} seconds")
+                
+                # Log fallback usage if any
+                fallback_stats = analysis_results['fallback_stats']
+                if fallback_stats.get('total_events', 0) > 0:
+                    self.logger.info(f"Fallback mechanisms used: {fallback_stats['total_events']} times")
+                
+                self.logger.info("=" * 60)
+                
+                op_logger.log_progress("Analysis completed successfully",
+                                     total_execution_time=execution_time,
+                                     successful_predictions=len(analysis_results['predictions']),
+                                     total_errors=len(analysis_results['errors']))
+                
+                return analysis_results
+                
+            except Exception as e:
+                error_context = {**context, 'execution_time': (datetime.now() - start_time).total_seconds()}
+                error_msg = f"Daily analysis failed: {str(e)}"
+                
+                log_exception(self.logger, e, error_context, operation_name)
+                
+                analysis_results['errors'].append({
+                    'error': error_msg,
+                    'error_type': type(e).__name__,
+                    'timestamp': datetime.now().isoformat(),
+                    'traceback': traceback.format_exc(),
+                    'context': error_context
+                })
+                
+                # Add fallback stats even on failure
+                analysis_results['fallback_stats'] = get_fallback_stats()
+                
+                return analysis_results
     
     def _acquire_stock_data(self, date: Optional[str] = None) -> Any:
         """

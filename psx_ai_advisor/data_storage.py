@@ -5,20 +5,14 @@ Handles CSV file operations for persistent stock data storage
 
 import os
 import pandas as pd
-import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from .config_loader import get_section, get_value
-
-
-class DataStorageError(Exception):
-    """Base exception for data storage errors"""
-    pass
-
-
-class DataIntegrityError(DataStorageError):
-    """Raised when data integrity validation fails"""
-    pass
+from .exceptions import (
+    DataStorageError, DataIntegrityError, ValidationError,
+    create_error_context
+)
+from .logging_config import get_logger, log_exception, create_operation_logger
 
 
 class DataStorage:
@@ -42,7 +36,7 @@ class DataStorage:
         self.max_file_age_days = self.storage_config.get('max_file_age_days', 365)
         
         # Setup logging
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         # Ensure directories exist
         self._ensure_directories()

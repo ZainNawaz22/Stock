@@ -9,10 +9,11 @@ Relative Strength Index (RSI), and Moving Average Convergence Divergence (MACD).
 import pandas as pd
 import numpy as np
 from typing import Optional, Dict, Any
-import logging
+from .exceptions import TechnicalAnalysisError, InsufficientDataError, ValidationError, create_error_context
+from .logging_config import get_logger, log_exception, create_operation_logger
 
 # Set up logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TechnicalAnalyzer:
@@ -39,13 +40,21 @@ class TechnicalAnalyzer:
             pd.Series: Simple Moving Average values
             
         Raises:
-            ValueError: If period is invalid or data is insufficient
+            ValidationError: If period is invalid
+            InsufficientDataError: If data is insufficient
+            TechnicalAnalysisError: If calculation fails
         """
+        operation_name = f"calculate_sma_{period}"
+        context = create_error_context(operation_name, period=period, data_length=len(data))
+        
         if period <= 0:
-            raise ValueError("Period must be a positive integer")
+            exc = ValidationError("Period must be a positive integer", 'INVALID_PERIOD', context)
+            log_exception(logger, exc, context, operation_name)
+            raise exc
         
         if len(data) < period:
             logger.warning(f"Insufficient data for SMA calculation. Need {period} points, got {len(data)}")
+            # Return empty series instead of raising exception for graceful degradation
             return pd.Series(index=data.index, dtype=float)
         
         try:
@@ -54,7 +63,10 @@ class TechnicalAnalyzer:
             logger.debug(f"Calculated SMA_{period} for {len(data)} data points")
             return sma
         except Exception as e:
-            logger.error(f"Error calculating SMA_{period}: {str(e)}")
+            error_context = {**context, 'calculation_error': str(e)}
+            exc = TechnicalAnalysisError(f"Error calculating SMA_{period}: {str(e)}", 'SMA_CALCULATION_ERROR', error_context)
+            log_exception(logger, exc, error_context, operation_name)
+            # Return empty series for graceful degradation
             return pd.Series(index=data.index, dtype=float)
     
     def calculate_rsi(self, data: pd.Series, period: int = 14) -> pd.Series:

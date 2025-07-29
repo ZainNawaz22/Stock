@@ -28,9 +28,13 @@ storage:
 
 logging:
   level: "INFO"
-  file: "logs/psx_advisor.log"
+  file: "psx_advisor.log"
   max_size_mb: 10
   backup_count: 5
+  console_output: true
+  console_level: "INFO"
+  detailed_errors: true
+  log_directory: "logs"
 
 performance:
   max_concurrent_requests: 5
