@@ -11078,3 +11078,15 @@ ValueError: Simulated error for testing
 2025-07-30 03:51:28 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
 2025-07-30 03:51:28 | WARNING  | psx_ai_advisor.ml_predictor | _calculate_recent_accuracy:554  | Could not calculate recent accuracy for PTC: Insufficient data for training. Need 50 samples, got 30 (Code: InsufficientDataError)
 2025-07-30 03:51:28 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :417  | Prediction for PTC: DOWN (confidence: 0.6977)
+2025-07-30 04:03:42 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-07-30 04:03:42 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-07-30 04:03:42 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-07-30 04:03:42 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:95   | Ensured model directories exist: data\models, data\scalers
+2025-07-30 04:03:42 | INFO     | psx_ai_advisor.ml_predictor | __init__            :88   | MLPredictor initialized with RandomForest model
+2025-07-30 04:03:42 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-07-30 04:05:05 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-07-30 04:05:05 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-07-30 04:05:05 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-07-30 04:05:05 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:95   | Ensured model directories exist: data\models, data\scalers
+2025-07-30 04:05:05 | INFO     | psx_ai_advisor.ml_predictor | __init__            :88   | MLPredictor initialized with RandomForest model
+2025-07-30 04:05:05 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized

@@ -34,6 +34,16 @@ from psx_ai_advisor.exceptions import (
     PSXAdvisorError, DataStorageError, MLPredictorError, 
     InsufficientDataError, NetworkError
 )
+from psx_ai_advisor.api_models import (
+    StocksListResponse, StockDataResponse, PredictionsResponse, SystemStatus,
+    StockSummary, StockDataPoint, PredictionResult, APIError,
+    serialize_dataframe_simple, create_error_response
+)
+from psx_ai_advisor.api_monitoring import (
+    APIMonitoringMiddleware, log_api_performance, log_data_operation,
+    log_ml_operation, log_cache_operation, log_error_with_context,
+    PerformanceTimer, get_performance_metrics
+)
 
 # Initialize logging
 logger = get_logger(__name__)
@@ -55,6 +65,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+# Add API monitoring middleware
+app.add_middleware(APIMonitoringMiddleware)
 
 # Initialize components
 data_storage = DataStorage()
@@ -86,10 +99,14 @@ def get_cached_data(cache_dict: Dict, key: str, expiry_minutes: int = 30) -> Opt
         if key in cache_dict:
             data, timestamp = cache_dict[key]
             if datetime.now() - timestamp < timedelta(minutes=expiry_minutes):
+                log_cache_operation("get", key, hit=True)
                 return data
             else:
                 # Remove expired data
                 del cache_dict[key]
+                log_cache_operation("get", key, hit=False)
+        else:
+            log_cache_operation("get", key, hit=False)
     return None
 
 
@@ -97,6 +114,7 @@ def set_cached_data(cache_dict: Dict, key: str, data: Any) -> None:
     """Set cached data with timestamp."""
     with _cache_lock:
         cache_dict[key] = (data, datetime.now())
+        log_cache_operation("set", key)
 
 
 def clear_expired_cache() -> None:
@@ -138,6 +156,7 @@ def process_symbol_summary(symbol: str) -> Dict[str, Any]:
             return cached_summary
         
         # Get data summary
+        log_data_operation("get_summary", symbol)
         summary = data_storage.get_data_summary(symbol)
         
         if summary.get('exists', False) and not summary.get('is_empty', True):
@@ -181,6 +200,7 @@ def process_single_prediction(symbol: str) -> Dict[str, Any]:
             return cached_prediction
         
         # Generate new prediction
+        log_ml_operation("predict", symbol)
         prediction = ml_predictor.predict_movement(symbol)
         
         # Cache the result
@@ -206,40 +226,8 @@ def process_single_prediction(symbol: str) -> Dict[str, Any]:
         }
 
 
-def serialize_dataframe(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    """
-    Convert pandas DataFrame to JSON-serializable format.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to serialize
-        
-    Returns:
-        List[Dict[str, Any]]: JSON-serializable list of records
-    """
-    if df.empty:
-        return []
-    
-    # Convert DataFrame to dict records and handle NaN values
-    records = df.to_dict('records')
-    
-    # Replace NaN values and convert numpy types for JSON serialization
-    for record in records:
-        for key, value in record.items():
-            if pd.isna(value):
-                record[key] = None
-            elif isinstance(value, pd.Timestamp):
-                record[key] = value.isoformat()
-            elif isinstance(value, np.integer):
-                record[key] = int(value)
-            elif isinstance(value, np.floating):
-                record[key] = float(value)
-            elif hasattr(value, 'item'):  # Other numpy types
-                try:
-                    record[key] = value.item()
-                except (ValueError, TypeError):
-                    record[key] = str(value)
-    
-    return records
+# Use the serialize_dataframe_simple function from api_models instead
+# This function is now deprecated in favor of the api_models version
 
 
 def handle_api_error(error: Exception, operation: str) -> HTTPException:
@@ -253,7 +241,8 @@ def handle_api_error(error: Exception, operation: str) -> HTTPException:
     Returns:
         HTTPException: HTTP exception with appropriate status code
     """
-    logger.error(f"API error in {operation}: {str(error)}")
+    # Log error with context
+    log_error_with_context(error, {"operation": operation})
     
     if isinstance(error, FileNotFoundError):
         return HTTPException(status_code=404, detail=f"Resource not found: {str(error)}")
@@ -284,11 +273,12 @@ async def root():
     }
 
 
-@app.get("/api/stocks")
+@app.get("/api/stocks", response_model=StocksListResponse)
+@log_api_performance
 async def get_stocks(
     limit: Optional[int] = Query(None, description="Maximum number of stocks to return"),
     search: Optional[str] = Query(None, description="Search term to filter stocks by symbol")
-) -> Dict[str, Any]:
+) -> StocksListResponse:
     """
     Get list of available stocks with basic information.
     
@@ -361,24 +351,25 @@ async def get_stocks(
         
         logger.info(f"Returning {returned_count} stocks (total available: {total_count})")
         
-        return {
-            "stocks": stocks_info,
-            "total_count": total_count,
-            "returned_count": returned_count,
-            "has_more": total_count > returned_count,
-            "processing_time_optimized": True
-        }
+        return StocksListResponse(
+            stocks=[StockSummary(**stock) for stock in stocks_info],
+            total_count=total_count,
+            returned_count=returned_count,
+            has_more=total_count > returned_count,
+            processing_time_optimized=True
+        )
         
     except Exception as e:
         raise handle_api_error(e, "get_stocks")
 
 
-@app.get("/api/stocks/{symbol}/data")
+@app.get("/api/stocks/{symbol}/data", response_model=StockDataResponse)
+@log_api_performance
 async def get_stock_data(
     symbol: str = Path(..., description="Stock symbol"),
     days: Optional[int] = Query(None, description="Number of recent days to return"),
     include_indicators: bool = Query(True, description="Include technical indicators")
-) -> Dict[str, Any]:
+) -> StockDataResponse:
     """
     Get OHLCV data with technical indicators for a specific stock.
     
@@ -496,8 +487,37 @@ async def get_stock_data(
         if include_indicators:
             set_cached_data(_cached_technical_indicators, cache_key, response_data)
         
-        logger.info(f"Returning {len(stock_data)} data points for {symbol_upper}")
-        return response_data
+        # Convert to Pydantic model
+        try:
+            # Serialize stock data using the new utility
+            serialized_data = serialize_dataframe_simple(stock_data) if not stock_data.empty else []
+            
+            # Create the response using Pydantic model
+            stock_response = StockDataResponse(
+                symbol=response_data["symbol"],
+                data_points=response_data["data_points"],
+                date_range=response_data["date_range"],
+                current_values=response_data["current_values"],
+                technical_indicators=response_data.get("technical_indicators"),
+                data=serialized_data,
+                indicators_included=response_data["indicators_included"],
+                data_limited=response_data.get("data_limited")
+            )
+            
+            logger.info(f"Returning {len(stock_data)} data points for {symbol_upper}")
+            return stock_response
+            
+        except Exception as e:
+            logger.error(f"Error creating response model for {symbol_upper}: {e}")
+            # Fallback to basic response
+            return StockDataResponse(
+                symbol=symbol_upper,
+                data_points=len(stock_data),
+                date_range=response_data["date_range"],
+                current_values=response_data["current_values"],
+                data=[],
+                indicators_included=include_indicators
+            )
         
     except HTTPException:
         raise
@@ -505,12 +525,13 @@ async def get_stock_data(
         raise handle_api_error(e, f"get_stock_data for {symbol}")
 
 
-@app.get("/api/predictions")
+@app.get("/api/predictions", response_model=PredictionsResponse)
+@log_api_performance
 async def get_predictions(
     symbols: Optional[str] = Query(None, description="Comma-separated list of symbols (optional)"),
     force_refresh: bool = Query(False, description="Force refresh of cached predictions"),
     limit: Optional[int] = Query(10, description="Maximum number of predictions to return")
-) -> Dict[str, Any]:
+) -> PredictionsResponse:
     """
     Get current ML predictions for all stocks or specified symbols.
     
@@ -597,22 +618,23 @@ async def get_predictions(
         logger.info(f"Generated predictions for {len(symbol_list)} symbols "
                    f"(successful: {successful_predictions}, failed: {failed_predictions})")
         
-        return {
-            "predictions": predictions,
-            "total_count": len(predictions),
-            "successful_count": successful_predictions,
-            "failed_count": failed_predictions,
-            "processing_time_optimized": True,
-            "parallel_processing": True,
-            "last_updated": _last_system_update.isoformat() if _last_system_update else None
-        }
+        return PredictionsResponse(
+            predictions=[PredictionResult(**pred) for pred in predictions],
+            total_count=len(predictions),
+            successful_count=successful_predictions,
+            failed_count=failed_predictions,
+            processing_time_optimized=True,
+            parallel_processing=True,
+            last_updated=_last_system_update.isoformat() if _last_system_update else None
+        )
         
     except Exception as e:
         raise handle_api_error(e, "get_predictions")
 
 
-@app.get("/api/system/status")
-async def get_system_status() -> Dict[str, Any]:
+@app.get("/api/system/status", response_model=SystemStatus)
+@log_api_performance
+async def get_system_status() -> SystemStatus:
     """
     Get system health and last update information.
     
@@ -767,22 +789,56 @@ async def get_system_status() -> Dict[str, Any]:
         # Cache the status for 5 minutes
         set_cached_data(_cached_stock_summaries, "system_status", status_info)
         
-        logger.info(f"System status: {health_status} (score: {health_score})")
-        return status_info
+        # Convert to Pydantic model
+        try:
+            system_status = SystemStatus(
+                status=status_info["status"],
+                health=status_info["health"],
+                data=status_info["data"],
+                models=status_info["models"],
+                cache=status_info["cache"],
+                uptime={
+                    "api_started": status_info.get("api_started"),
+                    "cache_last_updated": status_info["cache"].get("last_updated")
+                },
+                version=status_info["version"],
+                timestamp=status_info["timestamp"]
+            )
+            
+            logger.info(f"System status: {health_status} (score: {health_score})")
+            return system_status
+            
+        except Exception as e:
+            logger.error(f"Error creating system status model: {e}")
+            # Fallback to basic status
+            return SystemStatus(
+                status="degraded",
+                health={"score": 0, "status": "error", "issues": [f"Status model error: {str(e)}"]},
+                data={"total_symbols": 0, "total_records": 0, "storage_size_mb": 0.0},
+                models={"available_count": 0, "sample_checked": 0},
+                cache={"predictions_cached": 0, "cache_expiry_minutes": 30},
+                uptime={},
+                version="1.0.0",
+                timestamp=datetime.now().isoformat()
+            )
         
     except Exception as e:
         logger.error(f"Error getting system status: {e}")
         # Return degraded status instead of failing completely
-        return {
-            "status": "degraded",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat(),
-            "health": {
+        return SystemStatus(
+            status="degraded",
+            health={
                 "score": 0,
                 "status": "error",
                 "issues": [f"System status check failed: {str(e)}"]
-            }
-        }
+            },
+            data={"total_symbols": 0, "total_records": 0, "storage_size_mb": 0.0},
+            models={"available_count": 0, "sample_checked": 0},
+            cache={"predictions_cached": 0, "cache_expiry_minutes": 30},
+            uptime={},
+            version="1.0.0",
+            timestamp=datetime.now().isoformat()
+        )
 
 
 # Background task for warming up predictions
@@ -941,6 +997,55 @@ async def periodic_cache_cleanup():
             logger.debug("Periodic cache cleanup completed")
         except Exception as e:
             logger.error(f"Error in periodic cache cleanup: {e}")
+
+
+# Additional API endpoints for cache management and monitoring
+
+@app.post("/api/cache/clear")
+@log_api_performance
+async def clear_cache():
+    """Clear all cached data to force fresh calculations."""
+    try:
+        with _cache_lock:
+            _cached_predictions.clear()
+            _cached_stock_summaries.clear()
+            _cached_technical_indicators.clear()
+        
+        log_cache_operation("clear_all")
+        logger.info("All caches cleared successfully")
+        
+        return {
+            "message": "All caches cleared successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise handle_api_error(e, "clear_cache")
+
+
+@app.get("/api/performance/metrics")
+@log_api_performance
+async def get_performance_metrics():
+    """Get API performance metrics."""
+    try:
+        metrics = get_performance_metrics()
+        return {
+            "performance_metrics": metrics,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise handle_api_error(e, "get_performance_metrics")
+
+
+@app.get("/health")
+async def health_check():
+    """Simple health check endpoint for load balancers."""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    }
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
