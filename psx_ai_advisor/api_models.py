@@ -206,6 +206,15 @@ class UptimeInfo(BaseModel):
     cache_last_updated: Optional[str] = Field(None, description="When cache was last updated")
 
 
+class PerformanceInfo(BaseModel):
+    """Performance configuration information."""
+    optimized: bool = Field(..., description="Whether performance optimizations are enabled")
+    parallel_processing: bool = Field(..., description="Whether parallel processing is enabled")
+    caching_enabled: bool = Field(..., description="Whether caching is enabled")
+    max_symbols_per_request: int = Field(..., description="Maximum symbols per request")
+    max_data_points_default: int = Field(..., description="Default maximum data points")
+
+
 class SystemStatus(BaseModel):
     """Complete system status information."""
     status: str = Field(..., description="Overall system status")
@@ -213,7 +222,8 @@ class SystemStatus(BaseModel):
     data: DataInfo = Field(..., description="Data information")
     models: ModelsInfo = Field(..., description="ML models information")
     cache: CacheInfo = Field(..., description="Cache information")
-    uptime: UptimeInfo = Field(..., description="System uptime information")
+    performance: PerformanceInfo = Field(..., description="Performance information")
+    api_started: Optional[str] = Field(None, description="When API was started")
     version: str = Field(..., description="API version")
     timestamp: str = Field(..., description="Status timestamp")
 

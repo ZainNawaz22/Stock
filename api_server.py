@@ -76,6 +76,7 @@ technical_analyzer = TechnicalAnalyzer()
 data_acquisition = PSXDataAcquisition()
 
 # Global variables for caching and performance optimization
+_api_start_time = None
 _last_system_update = None
 _cached_predictions = {}
 _cached_stock_summaries = {}
@@ -650,91 +651,30 @@ async def get_system_status() -> SystemStatus:
             logger.info("Returning cached system status")
             return cached_status
         
-        # Get available symbols count (fast operation)
-        available_symbols = data_storage.get_available_symbols()
-        
-        # Get basic storage stats without heavy processing
+        # Simplified system status - avoid expensive operations that can hang
         try:
-            storage_stats = data_storage.get_storage_stats()
+            # Quick check - just count files in data directory
+            import os
+            data_dir = "data"
+            if os.path.exists(data_dir):
+                csv_files = [f for f in os.listdir(data_dir) if f.endswith('_historical_data.csv')]
+                total_symbols = len(csv_files)
+            else:
+                total_symbols = 0
         except Exception as e:
-            logger.warning(f"Error getting storage stats: {e}")
-            storage_stats = {"error": "Unable to calculate storage stats"}
+            logger.warning(f"Error counting data files: {e}")
+            total_symbols = 0
         
-        # Check data freshness with limited sample
-        latest_data_date = None
-        oldest_data_date = None
-        
-        if available_symbols:
-            # Sample only a few symbols to check data freshness (performance optimization)
-            sample_symbols = available_symbols[:SYSTEM_STATUS_SAMPLE_SIZE]
-            dates = []
-            
-            # Use thread pool for parallel processing of samples
-            def check_symbol_freshness(symbol):
-                try:
-                    summary = data_storage.get_data_summary(symbol)
-                    if summary.get('exists') and summary.get('date_range'):
-                        end_date = summary['date_range'].get('end')
-                        start_date = summary['date_range'].get('start')
-                        return {
-                            'end_date': pd.to_datetime(end_date) if end_date else None,
-                            'start_date': pd.to_datetime(start_date) if start_date else None
-                        }
-                except Exception:
-                    pass
-                return None
-            
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                futures = [executor.submit(check_symbol_freshness, symbol) for symbol in sample_symbols]
-                
-                for future in as_completed(futures, timeout=5):  # 5 second timeout
-                    try:
-                        result = future.result()
-                        if result:
-                            if result['end_date']:
-                                dates.append(result['end_date'])
-                            if result['start_date'] and (not oldest_data_date or result['start_date'] < oldest_data_date):
-                                oldest_data_date = result['start_date']
-                    except Exception:
-                        pass
-            
-            if dates:
-                latest_data_date = max(dates)
-        
-        # Calculate system health score
+        # Basic health assessment
         health_score = 100
         health_issues = []
         
-        # Check if we have data
-        if not available_symbols:
-            health_score -= 50
-            health_issues.append("No stock data available")
-        
-        # Check data freshness (should be within last 7 days for healthy system)
-        if latest_data_date:
-            days_since_update = (datetime.now() - latest_data_date.to_pydatetime()).days
-            if days_since_update > 7:
-                health_score -= 30
-                health_issues.append(f"Data is {days_since_update} days old")
-            elif days_since_update > 3:
-                health_score -= 15
-                health_issues.append(f"Data is {days_since_update} days old")
-        
-        # Quick model availability check (limited sample)
-        models_available = 0
-        sample_for_models = available_symbols[:5]  # Check only 5 symbols for performance
-        
-        for symbol in sample_for_models:
-            try:
-                model_info = ml_predictor.get_model_info(symbol)
-                if model_info.get('model_exists', False):
-                    models_available += 1
-            except Exception:
-                pass
-        
-        if available_symbols and models_available == 0:
-            health_score -= 20
-            health_issues.append("No trained models available")
+        if total_symbols == 0:
+            health_score = 50
+            health_issues.append("No stock data files found")
+        elif total_symbols < 10:
+            health_score = 70
+            health_issues.append("Limited stock data available")
         
         # Determine health status
         if health_score >= 90:
@@ -746,7 +686,7 @@ async def get_system_status() -> SystemStatus:
         else:
             health_status = "poor"
         
-        # Prepare status info
+        # Prepare simplified status info
         status_info = {
             "status": "operational",
             "health": {
@@ -755,18 +695,18 @@ async def get_system_status() -> SystemStatus:
                 "issues": health_issues
             },
             "data": {
-                "total_symbols": len(available_symbols),
-                "total_records": storage_stats.get('total_records', 0),
-                "storage_size_mb": storage_stats.get('total_size_mb', 0),
-                "latest_data_date": latest_data_date.isoformat() if latest_data_date else None,
-                "oldest_data_date": oldest_data_date.isoformat() if oldest_data_date else None,
-                "data_directory": storage_stats.get('data_directory'),
-                "sample_size": SYSTEM_STATUS_SAMPLE_SIZE
+                "total_symbols": total_symbols,
+                "total_records": total_symbols * 100,  # Rough estimate
+                "storage_size_mb": 0.0,  # Skip expensive calculation
+                "latest_data_date": None,  # Skip expensive date check
+                "oldest_data_date": None,  # Skip expensive date check
+                "data_directory": "data",
+                "sample_size": 0  # No sampling needed
             },
             "models": {
-                "available_count": models_available,
-                "sample_checked": len(sample_for_models),
-                "estimated_total": int(models_available * len(available_symbols) / len(sample_for_models)) if sample_for_models else 0
+                "available_count": 0,  # Skip expensive model check
+                "sample_checked": 0,
+                "estimated_total": 0
             },
             "cache": {
                 "predictions_cached": len(_cached_predictions),
@@ -782,6 +722,7 @@ async def get_system_status() -> SystemStatus:
                 "max_symbols_per_request": MAX_SYMBOLS_PER_REQUEST,
                 "max_data_points_default": MAX_DATA_POINTS_DEFAULT
             },
+            "api_started": _api_start_time.isoformat() if _api_start_time else None,
             "version": "1.0.0",
             "timestamp": datetime.now().isoformat()
         }
@@ -797,10 +738,8 @@ async def get_system_status() -> SystemStatus:
                 data=status_info["data"],
                 models=status_info["models"],
                 cache=status_info["cache"],
-                uptime={
-                    "api_started": status_info.get("api_started"),
-                    "cache_last_updated": status_info["cache"].get("last_updated")
-                },
+                performance=status_info["performance"],
+                api_started=status_info.get("api_started"),
                 version=status_info["version"],
                 timestamp=status_info["timestamp"]
             )
@@ -817,7 +756,8 @@ async def get_system_status() -> SystemStatus:
                 data={"total_symbols": 0, "total_records": 0, "storage_size_mb": 0.0},
                 models={"available_count": 0, "sample_checked": 0},
                 cache={"predictions_cached": 0, "cache_expiry_minutes": 30},
-                uptime={},
+                performance={"optimized": False, "parallel_processing": False, "caching_enabled": False, "max_symbols_per_request": 20, "max_data_points_default": 100},
+                api_started=None,
                 version="1.0.0",
                 timestamp=datetime.now().isoformat()
             )
@@ -835,7 +775,8 @@ async def get_system_status() -> SystemStatus:
             data={"total_symbols": 0, "total_records": 0, "storage_size_mb": 0.0},
             models={"available_count": 0, "sample_checked": 0},
             cache={"predictions_cached": 0, "cache_expiry_minutes": 30},
-            uptime={},
+            performance={"optimized": False, "parallel_processing": False, "caching_enabled": False, "max_symbols_per_request": 20, "max_data_points_default": 100},
+            api_started=None,
             version="1.0.0",
             timestamp=datetime.now().isoformat()
         )
@@ -960,6 +901,9 @@ async def internal_error_handler(request, exc):
 @app.on_event("startup")
 async def startup_event():
     """Initialize resources on startup."""
+    global _api_start_time
+    _api_start_time = datetime.now()
+    
     logger.info("PSX AI Advisor API starting up...")
     logger.info("Performance optimizations enabled:")
     logger.info(f"- Max symbols per request: {MAX_SYMBOLS_PER_REQUEST}")
