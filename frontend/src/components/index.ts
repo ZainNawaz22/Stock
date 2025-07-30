@@ -4,3 +4,8 @@ export { ErrorMessage } from './common/ErrorMessage';
 
 // Layout components
 export { Layout } from './layout/Layout';
+
+// Dashboard components
+export { Dashboard } from './dashboard/Dashboard';
+export { SummaryCard } from './dashboard/SummaryCard';
+export { SystemStatusIndicator } from './dashboard/SystemStatusIndicator';
