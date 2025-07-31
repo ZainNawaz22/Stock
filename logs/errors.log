@@ -9,3 +9,4 @@ Traceback (most recent call last):
             len(pending), total_futures))
 TimeoutError: 32 (of 96) futures unfinished
 2025-07-31 05:38:42 | ERROR    | psx_ai_advisor.api_monitoring | wrapper             :173  | PID:30560 | Failed get_stocks after 141.258s - 500: Unexpected error in get_stocks: 32 (of 96) futures unfinished
+2025-08-01 01:17:56 | ERROR    | api_server                | process_regeneration:847  | PID:27556 | Error regenerating prediction for ENGRO: Prediction failed for ENGRO: Training failed for ENGRO: No data file found for symbol: ENGRO (Code: InsufficientDataError) (Code: InsufficientDataError) (Code: MLPredictorError)

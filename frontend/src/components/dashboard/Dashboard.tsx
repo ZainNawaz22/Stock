@@ -15,12 +15,14 @@ import {
   AutorenewOutlined as AutoRefreshIcon,
   PlayArrow as PlayIcon,
   Pause as PauseIcon,
+  Psychology as PredictIcon,
 } from '@mui/icons-material';
 import { 
   useSystemStatus, 
   useStocks, 
   usePredictions, 
-  useAutoRefresh 
+  useAutoRefresh,
+  usePredictionRegenerate
 } from '../../hooks';
 import { SummaryCard } from './SummaryCard';
 import { SystemStatusIndicator } from './SystemStatusIndicator';
@@ -45,6 +47,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
   const stocks = useStocks(undefined, undefined, true); // Get ALL stocks with predictions included
   const predictions = usePredictions(); // Keep separate predictions for additional summary data
 
+  // Regenerate predictions hook
+  const { regenerate: regeneratePredictions, loading: regenerateLoading } = usePredictionRegenerate({
+    onSuccess: (data) => {
+      console.log(`Successfully regenerated ${data.successful_count} predictions`);
+      // Refresh the data to show updated predictions
+      handleManualRefresh();
+    },
+    onError: (error) => {
+      console.error('Error regenerating predictions:', error);
+    }
+  });
+
   // Manual refresh function
   const handleManualRefresh = useCallback(async () => {
     setLastManualRefresh(new Date());
@@ -60,6 +74,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
     }
   }, [systemStatus, stocks, predictions]);
 
+  // Re-predict all function
+  const handleRepredictAll = useCallback(async () => {
+    try {
+      await regeneratePredictions(undefined, false, 10); // Regenerate up to 10 predictions
+    } catch (error) {
+      console.error('Error during re-prediction:', error);
+    }
+  }, [regeneratePredictions]);
+
   // Auto-refresh setup
   useAutoRefresh({
     interval: refreshInterval,
@@ -72,7 +95,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
     handleManualRefresh();
   }, []); // Only run once on mount
 
-  const isLoading = systemStatus.loading || stocks.loading || predictions.loading;
+  const isLoading = systemStatus.loading || stocks.loading || predictions.loading || regenerateLoading;
   const hasError = systemStatus.error || stocks.error || predictions.error;
 
   // Calculate summary statistics from stocks data (which includes predictions)
@@ -200,6 +223,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
             }}
           >
             {isLoading ? 'Refreshing...' : (isDesktop ? 'Refresh' : 'Refresh')}
+          </Button>
+
+          {/* Re-predict all button */}
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={regenerateLoading ? <CircularProgress size={16} color="inherit" /> : <PredictIcon />}
+            onClick={handleRepredictAll}
+            disabled={isLoading || regenerateLoading}
+            size={isDesktop ? "large" : "medium"}
+            sx={{
+              borderRadius: { xs: 2, lg: 2.5 },
+              padding: { xs: '8px 16px', lg: '10px 20px' },
+              fontSize: { xs: '0.875rem', lg: '0.95rem' },
+              minWidth: { xs: 'auto', lg: '140px' },
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                transform: isDesktop ? 'translateY(-2px)' : 'none',
+                boxShadow: isDesktop ? '0 6px 16px rgba(156, 39, 176, 0.3)' : 'inherit',
+              },
+            }}
+          >
+            {regenerateLoading ? 'Re-predicting...' : (isDesktop ? 'Re-predict All' : 'Re-predict')}
           </Button>
         </Box>
       </Box>

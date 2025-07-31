@@ -30,8 +30,9 @@ import {
   ArrowBack as ArrowBackIcon,
   ViewColumn as ViewColumnIcon,
   FilterList as FilterListIcon,
+  Psychology as PredictIcon,
 } from '@mui/icons-material';
-import { useStocks } from '../../hooks';
+import { useStocks, usePredictionRegenerate } from '../../hooks';
 import { LoadingSpinner, ErrorMessage } from '../common';
 import type { StockInfo, PredictionResult } from '../../types/api';
 
@@ -72,6 +73,18 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
 
   // API hooks - fetch all stocks with predictions included
   const stocks = useStocks(undefined, undefined, true); // Include predictions
+
+  // Regenerate predictions hook
+  const { regenerate: regeneratePredictions, loading: regenerateLoading } = usePredictionRegenerate({
+    onSuccess: (data) => {
+      console.log(`Successfully regenerated ${data.successful_count} predictions`);
+      // Refresh the stocks data to show updated predictions
+      stocks.execute();
+    },
+    onError: (error) => {
+      console.error('Error regenerating predictions:', error);
+    }
+  });
 
   // Use stocks data directly since predictions are now included
   const stocksWithPredictions = useMemo<StockWithPrediction[]>(() => {
@@ -184,6 +197,17 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
     await stocks.execute();
   }, [stocks]);
 
+  // Re-predict all visible stocks
+  const handleRepredictAll = useCallback(async () => {
+    try {
+      // Get current visible stocks
+      const currentStocks = paginatedStocks.map(stock => stock.symbol);
+      await regeneratePredictions(currentStocks, false); // Regenerate for current page
+    } catch (error) {
+      console.error('Error during re-prediction:', error);
+    }
+  }, [regeneratePredictions, paginatedStocks]);
+
   // Load data on mount
   useEffect(() => {
     handleRefresh();
@@ -240,7 +264,7 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
     );
   };
 
-  const isLoading = stocks.loading;
+  const isLoading = stocks.loading || regenerateLoading;
   const hasError = stocks.error;
 
   return (
@@ -326,6 +350,31 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
               }}
             >
               {isLoading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </Tooltip>
+          
+          {/* Re-predict All button */}
+          <Tooltip title="Re-predict all visible stocks">
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={regenerateLoading ? <CircularProgress size={16} color="inherit" /> : <PredictIcon />}
+              onClick={handleRepredictAll}
+              disabled={isLoading || stocksWithPredictions.length === 0}
+              size={isDesktop ? "large" : "medium"}
+              sx={{
+                borderRadius: { xs: 2, lg: 2.5 },
+                padding: { xs: '8px 16px', lg: '10px 20px' },
+                fontSize: { xs: '0.875rem', lg: '0.95rem' },
+                minWidth: { xs: 'auto', lg: '140px' },
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: isDesktop ? 'translateY(-2px)' : 'none',
+                  boxShadow: isDesktop ? '0 6px 16px rgba(156, 39, 176, 0.3)' : 'inherit',
+                },
+              }}
+            >
+              {regenerateLoading ? 'Re-predicting...' : (isDesktop ? 'Re-predict All' : 'Re-predict')}
             </Button>
           </Tooltip>
         </Box>

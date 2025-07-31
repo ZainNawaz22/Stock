@@ -118,6 +118,32 @@ def set_cached_data(cache_dict: Dict, key: str, data: Any) -> None:
         log_cache_operation("set", key)
 
 
+def clear_symbol_caches(symbols: List[str]) -> int:
+    """Clear cached data for specific symbols."""
+    cleared_count = 0
+    with _cache_lock:
+        for symbol in symbols:
+            # Clear prediction cache
+            if symbol in _cached_predictions:
+                del _cached_predictions[symbol]
+                cleared_count += 1
+                log_cache_operation("clear", f"prediction_{symbol}")
+            
+            # Clear stock summary cache
+            if symbol in _cached_stock_summaries:
+                del _cached_stock_summaries[symbol]
+                cleared_count += 1
+                log_cache_operation("clear", f"summary_{symbol}")
+            
+            # Clear technical indicators cache
+            if symbol in _cached_technical_indicators:
+                del _cached_technical_indicators[symbol]
+                cleared_count += 1
+                log_cache_operation("clear", f"indicators_{symbol}")
+    
+    return cleared_count
+
+
 def clear_expired_cache() -> None:
     """Clear expired cache entries."""
     with _cache_lock:
@@ -742,6 +768,153 @@ async def get_predictions(
         
     except Exception as e:
         raise handle_api_error(e, "get_predictions")
+
+
+@app.post("/api/predictions/regenerate", response_model=PredictionsResponse)
+@log_api_performance
+async def regenerate_predictions(
+    symbols: Optional[str] = Query(None, description="Comma-separated list of symbols to regenerate (optional - regenerates all if not provided)"),
+    retrain_models: bool = Query(False, description="Whether to retrain models before generating predictions"),
+    limit: Optional[int] = Query(20, description="Maximum number of predictions to regenerate")
+) -> PredictionsResponse:
+    """
+    Regenerate predictions for specified symbols or all symbols.
+    This clears cache and generates fresh predictions.
+    """
+    try:
+        start_time = time.time()
+        
+        # Determine which symbols to regenerate
+        if symbols:
+            symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        else:
+            all_symbols = data_storage.get_available_symbols()
+            # Apply reasonable limit to prevent timeouts
+            symbol_list = all_symbols[:limit] if limit else all_symbols[:20]
+        
+        if not symbol_list:
+            return PredictionsResponse(
+                predictions=[],
+                total_count=0,
+                successful_count=0,
+                failed_count=0,
+                processing_time_optimized=True,
+                parallel_processing=False,
+                cache_used=False,
+                last_updated=datetime.now().isoformat()
+            )
+        
+        # Apply reasonable limit
+        if limit and len(symbol_list) > limit:
+            symbol_list = symbol_list[:limit]
+            logger.info(f"Limited regeneration to {limit} symbols for performance")
+        
+        logger.info(f"Regenerating predictions for {len(symbol_list)} symbols (retrain: {retrain_models})")
+        
+        # Clear existing cache for these symbols
+        cleared_count = clear_symbol_caches(symbol_list)
+        logger.info(f"Cleared cache for {cleared_count} items")
+        
+        # Define function to process single prediction with optional retraining
+        def process_regeneration(symbol: str) -> Dict[str, Any]:
+            try:
+                # Optionally retrain model
+                if retrain_models:
+                    try:
+                        logger.info(f"Retraining model for {symbol}")
+                        training_result = ml_predictor.train_model(symbol)
+                        logger.info(f"Model retrained for {symbol} with accuracy: {training_result.get('accuracy', 'N/A')}")
+                    except Exception as e:
+                        logger.warning(f"Model retraining failed for {symbol}: {e}")
+                
+                # Generate fresh prediction (cache already cleared)
+                log_ml_operation("regenerate", symbol)
+                prediction = ml_predictor.predict_movement(symbol)
+                
+                # Set new cached data
+                set_cached_data(_cached_predictions, symbol, prediction)
+                return prediction
+                
+            except InsufficientDataError as e:
+                return {
+                    "symbol": symbol,
+                    "error": "insufficient_data",
+                    "message": str(e),
+                    "prediction": None,
+                    "confidence": None
+                }
+            except Exception as e:
+                logger.error(f"Error regenerating prediction for {symbol}: {e}")
+                return {
+                    "symbol": symbol,
+                    "error": "regeneration_failed",
+                    "message": str(e),
+                    "prediction": None,
+                    "confidence": None
+                }
+        
+        # Process predictions in parallel
+        predictions = []
+        successful_predictions = 0
+        failed_predictions = 0
+        
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            # Submit all regeneration tasks
+            future_to_symbol = {
+                executor.submit(process_regeneration, symbol): symbol 
+                for symbol in symbol_list
+            }
+            
+            # Collect results as they complete with timeout
+            for future in as_completed(future_to_symbol, timeout=45):  # 45 second timeout for regeneration
+                try:
+                    prediction = future.result()
+                    predictions.append(prediction)
+                    
+                    if prediction.get('prediction') is not None:
+                        successful_predictions += 1
+                    else:
+                        failed_predictions += 1
+                        
+                except Exception as e:
+                    symbol = future_to_symbol[future]
+                    logger.error(f"Prediction regeneration timeout/error for {symbol}: {e}")
+                    predictions.append({
+                        "symbol": symbol,
+                        "error": "regeneration_timeout",
+                        "message": "Prediction regeneration processing timed out",
+                        "prediction": None,
+                        "confidence": None
+                    })
+                    failed_predictions += 1
+        
+        # Update cache timestamp
+        global _last_system_update
+        _last_system_update = datetime.now()
+        
+        # Sort predictions by confidence (successful ones first)
+        predictions.sort(key=lambda x: (
+            x.get('confidence', 0) if x.get('prediction') else -1
+        ), reverse=True)
+        
+        processing_time = time.time() - start_time
+        logger.info(f"Regenerated predictions for {len(symbol_list)} symbols in {processing_time:.2f}s "
+                   f"(successful: {successful_predictions}, failed: {failed_predictions})")
+        
+        return PredictionsResponse(
+            predictions=[PredictionResult(**pred) for pred in predictions],
+            total_count=len(predictions),
+            successful_count=successful_predictions,
+            failed_count=failed_predictions,
+            processing_time_optimized=True,
+            parallel_processing=True,
+            cache_used=False,  # Fresh predictions, no cache used
+            last_updated=_last_system_update.isoformat()
+        )
+        
+    except Exception as e:
+        raise handle_api_error(e, "regenerate_predictions")
 
 
 @app.get("/api/system/status", response_model=SystemStatus)
