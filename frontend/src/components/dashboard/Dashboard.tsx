@@ -7,6 +7,8 @@ import {
   Switch,
   FormControlLabel,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -31,14 +33,17 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
+  
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [refreshInterval] = useState(DEFAULT_REFRESH_INTERVAL);
   const [lastManualRefresh, setLastManualRefresh] = useState<Date | null>(null);
 
   // API hooks
   const systemStatus = useSystemStatus();
-  const stocks = useStocks(20, undefined, false); // Get first 20 stocks for summary, no predictions needed for dashboard
-  const predictions = usePredictions(); // Keep separate predictions for dashboard summary
+  const stocks = useStocks(undefined, undefined, true); // Get ALL stocks with predictions included
+  const predictions = usePredictions(); // Keep separate predictions for additional summary data
 
   // Manual refresh function
   const handleManualRefresh = useCallback(async () => {
@@ -70,33 +75,73 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
   const isLoading = systemStatus.loading || stocks.loading || predictions.loading;
   const hasError = systemStatus.error || stocks.error || predictions.error;
 
-  // Calculate summary statistics
+  // Calculate summary statistics from stocks data (which includes predictions)
   const totalStocks = systemStatus.data?.data?.total_symbols || 0;
-  const activePredictions = predictions.data?.successful_count || 0;
-  const failedPredictions = predictions.data?.failed_count || 0;
-  const predictionAccuracy = predictions.data?.predictions && predictions.data.predictions.length > 0 
-    ? (predictions.data.predictions.reduce((sum, p) => sum + p.model_accuracy, 0) / predictions.data.predictions.length * 100).toFixed(1)
+  
+  // Get prediction statistics from stocks data
+  const stocksWithPredictions = stocks.data?.stocks || [];
+  const activePredictions = stocksWithPredictions.filter(stock => stock.prediction).length;
+  const failedPredictions = 0; // We'll get this from system status if available
+  
+  // Calculate prediction accuracy from stocks data
+  const predictionsWithAccuracy = stocksWithPredictions.filter(stock => 
+    stock.prediction && stock.prediction.model_accuracy
+  );
+  const predictionAccuracy = predictionsWithAccuracy.length > 0 
+    ? (predictionsWithAccuracy.reduce((sum, stock) => sum + (stock.prediction?.model_accuracy || 0), 0) / predictionsWithAccuracy.length * 100).toFixed(1)
     : '0';
 
-  const upPredictions = predictions.data?.predictions?.filter(p => p.prediction === 'UP').length || 0;
-  const downPredictions = predictions.data?.predictions?.filter(p => p.prediction === 'DOWN').length || 0;
+  // Count UP/DOWN predictions from stocks data
+  const upPredictions = stocksWithPredictions.filter(stock => stock.prediction?.prediction === 'UP').length;
+  const downPredictions = stocksWithPredictions.filter(stock => stock.prediction?.prediction === 'DOWN').length;
 
   return (
-    <Box>
+    <Box sx={{ 
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3,
-        flexWrap: 'wrap',
-        gap: 2
+        alignItems: { xs: 'flex-start', lg: 'center' }, 
+        mb: { xs: 3, lg: 4 },
+        flexDirection: { xs: 'column', lg: 'row' },
+        gap: { xs: 2, lg: 0 },
       }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Dashboard
-        </Typography>
+        <Box>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 700,
+              fontSize: { xs: '1.75rem', lg: '2rem', xl: '2.25rem' },
+              color: theme.palette.text.primary,
+              mb: 0.5,
+            }}
+          >
+            Welcome to Dashboard
+          </Typography>
+          <Typography 
+            variant="subtitle1" 
+            color="text.secondary"
+            sx={{ 
+              fontSize: { xs: '0.9rem', lg: '1rem' },
+            }}
+          >
+            Monitor your stock portfolio and market insights in real-time
+          </Typography>
+        </Box>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: { xs: 1.5, lg: 2 }, 
+          flexWrap: 'wrap',
+          width: { xs: '100%', lg: 'auto' },
+          justifyContent: { xs: 'flex-start', lg: 'flex-end' },
+        }}>
           {/* System Status Indicator */}
           <SystemStatusIndicator 
             systemStatus={systemStatus.data}
@@ -112,38 +157,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
                 onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
                 icon={<PauseIcon />}
                 checkedIcon={<PlayIcon />}
+                size={isDesktop ? "medium" : "small"}
               />
             }
             label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 0.5,
+                fontSize: { xs: '0.875rem', lg: '0.95rem' },
+              }}>
                 <AutoRefreshIcon fontSize="small" />
-                Auto-refresh
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  Auto-refresh
+                </Box>
               </Box>
             }
+            sx={{
+              '& .MuiFormControlLabel-label': {
+                fontSize: { xs: '0.875rem', lg: '0.95rem' },
+              },
+            }}
           />
           
           {/* Manual refresh button */}
           <Button
             variant="contained"
-            startIcon={isLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
             onClick={handleManualRefresh}
             disabled={isLoading}
-            size="medium"
+            size={isDesktop ? "large" : "medium"}
+            sx={{
+              borderRadius: { xs: 2, lg: 2.5 },
+              padding: { xs: '8px 16px', lg: '10px 20px' },
+              fontSize: { xs: '0.875rem', lg: '0.95rem' },
+              minWidth: { xs: 'auto', lg: '140px' },
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                transform: isDesktop ? 'translateY(-2px)' : 'none',
+                boxShadow: isDesktop ? '0 6px 16px rgba(25, 118, 210, 0.3)' : 'inherit',
+              },
+            }}
           >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
+            {isLoading ? 'Refreshing...' : (isDesktop ? 'Refresh' : 'Refresh')}
           </Button>
         </Box>
       </Box>
 
       {/* Last update info */}
       {(lastManualRefresh || autoRefreshEnabled) && (
-        <Paper sx={{ p: 2, mb: 3, bgcolor: 'background.default' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+        <Paper sx={{ 
+          p: { xs: 2, lg: 3 }, 
+          mb: { xs: 3, lg: 4 }, 
+          bgcolor: 'background.default',
+          borderRadius: { xs: 2, lg: 3 },
+          boxShadow: isDesktop ? '0 2px 12px rgba(0,0,0,0.08)' : 1,
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: { xs: 1, sm: 0 },
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{
+              fontSize: { xs: '0.8rem', lg: '0.875rem' },
+            }}>
               {lastManualRefresh && `Last updated: ${lastManualRefresh.toLocaleString()}`}
             </Typography>
             {autoRefreshEnabled && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{
+                fontSize: { xs: '0.8rem', lg: '0.875rem' },
+              }}>
                 Auto-refresh: Every {Math.floor(refreshInterval / 60000)} minutes
               </Typography>
             )}
@@ -169,9 +254,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
       {/* Summary Cards Grid */}
       <Box sx={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-        gap: 3, 
-        mb: 4 
+        gridTemplateColumns: { 
+          xs: '1fr',
+          sm: 'repeat(2, 1fr)',
+          lg: 'repeat(auto-fit, minmax(280px, 1fr))',
+          xl: 'repeat(4, 1fr)',
+        }, 
+        gap: { xs: 2, lg: 3, xl: 4 }, 
+        mb: { xs: 4, lg: 6 },
       }}>
         {/* Total Stocks */}
         <SummaryCard
@@ -205,57 +295,80 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
           loading={predictions.loading}
         />
 
-        {/* System Health */}
+        {/* Market Sentiment */}
         <SummaryCard
-          title="System Health"
-          value={`${systemStatus.data?.health?.score || 0}%`}
-          subtitle={systemStatus.data?.health?.status || 'Unknown'}
-          icon={
-            (systemStatus.data?.health?.score || 0) >= 90 ? 'check' :
-            (systemStatus.data?.health?.score || 0) >= 70 ? 'warning' : 'error'
-          }
-          status={
-            (systemStatus.data?.health?.score || 0) >= 90 ? 'success' :
-            (systemStatus.data?.health?.score || 0) >= 70 ? 'warning' : 'error'
-          }
-          loading={systemStatus.loading}
+          title="Market Sentiment"
+          value={upPredictions > downPredictions ? 'Bullish' : downPredictions > upPredictions ? 'Bearish' : 'Neutral'}
+          subtitle={`${upPredictions} UP, ${downPredictions} DOWN`}
+          icon={upPredictions > downPredictions ? 'trending-up' : downPredictions > upPredictions ? 'trending-down' : 'assessment'}
+          status={upPredictions > downPredictions ? 'success' : downPredictions > upPredictions ? 'error' : 'info'}
+          loading={predictions.loading}
         />
       </Box>
 
       {/* Prediction Summary */}
-      {predictions.data && predictions.data.predictions.length > 0 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Prediction Summary
+      {stocksWithPredictions.length > 0 && (
+        <Paper sx={{ 
+          p: { xs: 2, lg: 3 }, 
+          mb: { xs: 3, lg: 4 },
+          borderRadius: { xs: 2, lg: 3 },
+          boxShadow: isDesktop ? '0 2px 12px rgba(0,0,0,0.08)' : 1,
+        }}>
+          <Typography variant="h6" sx={{ 
+            mb: { xs: 2, lg: 3 }, 
+            fontWeight: 'bold',
+            fontSize: { xs: '1.125rem', lg: '1.25rem' },
+          }}>
+            Prediction Summary ({activePredictions} stocks analyzed)
           </Typography>
           <Box sx={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-            gap: 3 
+            gridTemplateColumns: { 
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              lg: 'repeat(3, 1fr)',
+            }, 
+            gap: { xs: 2, lg: 3 }
           }}>
             <SummaryCard
               title="Bullish Predictions"
               value={upPredictions}
-              subtitle={`${((upPredictions / (upPredictions + downPredictions)) * 100).toFixed(1)}% of total`}
+              subtitle={`${((upPredictions / Math.max(upPredictions + downPredictions, 1)) * 100).toFixed(1)}% of predictions`}
               icon="trending-up"
               status="success"
-              loading={predictions.loading}
+              loading={stocks.loading}
             />
             <SummaryCard
               title="Bearish Predictions"
               value={downPredictions}
-              subtitle={`${((downPredictions / (upPredictions + downPredictions)) * 100).toFixed(1)}% of total`}
+              subtitle={`${((downPredictions / Math.max(upPredictions + downPredictions, 1)) * 100).toFixed(1)}% of predictions`}
               icon="trending-down"
               status="error"
-              loading={predictions.loading}
+              loading={stocks.loading}
             />
             <SummaryCard
-              title="Cache Status"
-              value={predictions.data.cache_used ? 'Cached' : 'Fresh'}
-              subtitle={`Updated: ${new Date(predictions.data.last_updated).toLocaleString()}`}
-              icon="speed"
-              status={predictions.data.cache_used ? 'info' : 'success'}
-              loading={predictions.loading}
+              title="Coverage"
+              value={`${((activePredictions / Math.max(totalStocks, 1)) * 100).toFixed(1)}%`}
+              subtitle={`${activePredictions} of ${totalStocks} stocks predicted`}
+              icon="assessment"
+              status="info"
+              loading={stocks.loading}
+            />
+            <SummaryCard
+              title="Bearish Predictions"
+              value={downPredictions}
+              subtitle={`${((downPredictions / Math.max(upPredictions + downPredictions, 1)) * 100).toFixed(1)}% of total`}
+              icon="trending-down"
+              status="error"
+              loading={stocks.loading}
+            />
+            <SummaryCard
+              title="Total Stocks"
+              value={stocks.data?.total_count || 0}
+              subtitle={`${stocks.data?.returned_count || 0} loaded`}
+              icon="assessment"
+              status="info"
+              loading={stocks.loading}
             />
           </Box>
         </Paper>
@@ -263,22 +376,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
 
       {/* Data Storage Info */}
       {systemStatus.data && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+        <Paper sx={{ 
+          p: { xs: 2, lg: 3 },
+          borderRadius: { xs: 2, lg: 3 },
+          boxShadow: isDesktop ? '0 2px 12px rgba(0,0,0,0.08)' : 1,
+        }}>
+          <Typography variant="h6" sx={{ 
+            mb: { xs: 2, lg: 3 }, 
+            fontWeight: 'bold',
+            fontSize: { xs: '1.125rem', lg: '1.25rem' },
+          }}>
             Data Storage Information
           </Typography>
           <Box sx={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-            gap: 2 
+            gridTemplateColumns: { 
+              xs: 'repeat(2, 1fr)',
+              sm: 'repeat(2, 1fr)',
+              lg: 'repeat(4, 1fr)',
+            }, 
+            gap: { xs: 2, lg: 3 }
           }}>
             <Box>
-              <Typography variant="body2" color="text.secondary">Storage Size</Typography>
-              <Typography variant="h6">{systemStatus.data.data?.storage_size_mb?.toFixed(1) || 0} MB</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', lg: '0.875rem' } }}>
+                Storage Size
+              </Typography>
+              <Typography variant="h6" sx={{ fontSize: { xs: '1.125rem', lg: '1.25rem' } }}>
+                {systemStatus.data.data?.storage_size_mb?.toFixed(1) || 0} MB
+              </Typography>
             </Box>
             <Box>
-              <Typography variant="body2" color="text.secondary">Latest Data</Typography>
-              <Typography variant="h6">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', lg: '0.875rem' } }}>
+                Latest Data
+              </Typography>
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', lg: '1.125rem' } }}>
                 {systemStatus.data.data?.latest_data_date 
                   ? new Date(systemStatus.data.data.latest_data_date).toLocaleDateString()
                   : 'N/A'
@@ -286,8 +417,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
               </Typography>
             </Box>
             <Box>
-              <Typography variant="body2" color="text.secondary">Oldest Data</Typography>
-              <Typography variant="h6">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', lg: '0.875rem' } }}>
+                Oldest Data
+              </Typography>
+              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', lg: '1.125rem' } }}>
                 {systemStatus.data.data?.oldest_data_date 
                   ? new Date(systemStatus.data.data.oldest_data_date).toLocaleDateString()
                   : 'N/A'
@@ -295,8 +428,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
               </Typography>
             </Box>
             <Box>
-              <Typography variant="body2" color="text.secondary">Available Models</Typography>
-              <Typography variant="h6">{systemStatus.data.models?.available_count || 0}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', lg: '0.875rem' } }}>
+                Available Models
+              </Typography>
+              <Typography variant="h6" sx={{ fontSize: { xs: '1.125rem', lg: '1.25rem' } }}>
+                {systemStatus.data.models?.available_count || 0}
+              </Typography>
             </Box>
           </Box>
         </Paper>

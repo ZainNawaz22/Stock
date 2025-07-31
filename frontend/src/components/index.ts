@@ -4,6 +4,7 @@ export { ErrorMessage } from './common/ErrorMessage';
 
 // Layout components
 export { Layout } from './layout/Layout';
+export { Sidebar } from './layout/Sidebar';
 
 // Dashboard components
 export { Dashboard } from './dashboard/Dashboard';

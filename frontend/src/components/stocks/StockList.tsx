@@ -17,6 +17,9 @@ import {
   IconButton,
   Tooltip,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
+  Button,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -25,6 +28,8 @@ import {
   Remove as NeutralIcon,
   Refresh as RefreshIcon,
   ArrowBack as ArrowBackIcon,
+  ViewColumn as ViewColumnIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { useStocks } from '../../hooks';
 import { LoadingSpinner, ErrorMessage } from '../common';
@@ -44,16 +49,22 @@ interface SortConfig {
   direction: SortDirection;
 }
 
-const ITEMS_PER_PAGE = 25;
+const ITEMS_PER_PAGE_OPTIONS = [25, 50, 100];
+const DEFAULT_ITEMS_PER_PAGE = 25;
 
 interface StockListProps {
   onNavigateBack?: () => void;
 }
 
 export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
+  const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
+  
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     field: 'symbol',
     direction: 'asc',
@@ -141,13 +152,13 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
 
   // Paginate stocks
   const paginatedStocks = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
     return sortedStocks.slice(startIndex, endIndex);
-  }, [sortedStocks, currentPage]);
+  }, [sortedStocks, currentPage, itemsPerPage]);
 
   // Calculate pagination info
-  const totalPages = Math.ceil(sortedStocks.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedStocks.length / itemsPerPage);
 
   // Handle sorting
   const handleSort = useCallback((field: SortField) => {
@@ -233,51 +244,106 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
   const hasError = stocks.error;
 
   return (
-    <Box>
+    <Box sx={{ 
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3,
-        flexWrap: 'wrap',
-        gap: 2
+        alignItems: { xs: 'flex-start', lg: 'center' }, 
+        mb: { xs: 3, lg: 4 },
+        flexDirection: { xs: 'column', lg: 'row' },
+        gap: { xs: 2, lg: 0 },
       }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Stock List
-        </Typography>
+        <Box>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 700,
+              fontSize: { xs: '1.75rem', lg: '2rem', xl: '2.25rem' },
+              color: theme.palette.text.primary,
+              mb: 0.5,
+            }}
+          >
+            Stock List
+          </Typography>
+          <Typography 
+            variant="subtitle1" 
+            color="text.secondary"
+            sx={{ 
+              fontSize: { xs: '0.9rem', lg: '1rem' },
+            }}
+          >
+            Browse and analyze all available stocks with AI predictions
+          </Typography>
+        </Box>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: { xs: 1.5, lg: 2 },
+          width: { xs: '100%', lg: 'auto' },
+          justifyContent: { xs: 'flex-start', lg: 'flex-end' },
+        }}>
           {onNavigateBack && (
             <Tooltip title="Back to Dashboard">
               <IconButton
                 onClick={onNavigateBack}
                 color="primary"
+                size={isDesktop ? "large" : "medium"}
+                sx={{
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    transform: isDesktop ? 'translateY(-1px)' : 'none',
+                  },
+                }}
               >
                 <ArrowBackIcon />
               </IconButton>
             </Tooltip>
           )}
           <Tooltip title="Refresh data">
-            <IconButton
+            <Button
+              variant="contained"
+              startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
               onClick={handleRefresh}
               disabled={isLoading}
-              color="primary"
+              size={isDesktop ? "large" : "medium"}
+              sx={{
+                borderRadius: { xs: 2, lg: 2.5 },
+                padding: { xs: '8px 16px', lg: '10px 20px' },
+                fontSize: { xs: '0.875rem', lg: '0.95rem' },
+                minWidth: { xs: 'auto', lg: '120px' },
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: isDesktop ? 'translateY(-2px)' : 'none',
+                  boxShadow: isDesktop ? '0 6px 16px rgba(25, 118, 210, 0.3)' : 'inherit',
+                },
+              }}
             >
-              {isLoading ? <CircularProgress size={24} /> : <RefreshIcon />}
-            </IconButton>
+              {isLoading ? 'Refreshing...' : 'Refresh'}
+            </Button>
           </Tooltip>
         </Box>
       </Box>
 
       {/* Search and Stats */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ 
+        p: { xs: 2, lg: 3 }, 
+        mb: { xs: 3, lg: 4 },
+        borderRadius: { xs: 2, lg: 3 },
+        boxShadow: isDesktop ? '0 2px 12px rgba(0,0,0,0.08)' : 1,
+      }}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 2,
+          alignItems: { xs: 'flex-start', lg: 'center' },
+          flexDirection: { xs: 'column', lg: 'row' },
+          gap: { xs: 2, lg: 3 },
           mb: 2
         }}>
           <TextField
@@ -291,15 +357,33 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
                 </InputAdornment>
               ),
             }}
-            sx={{ minWidth: 300 }}
+            sx={{ 
+              minWidth: { xs: '100%', sm: 300, lg: 400 },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: { xs: 2, lg: 2.5 },
+                fontSize: { xs: '0.875rem', lg: '0.95rem' },
+                padding: { lg: '4px 14px' },
+              },
+            }}
           />
           
-          <Box sx={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+          <Box sx={{ 
+            display: 'flex', 
+            gap: { xs: 2, lg: 4 }, 
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            width: { xs: '100%', lg: 'auto' },
+            justifyContent: { xs: 'space-between', lg: 'flex-end' },
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{
+              fontSize: { xs: '0.8rem', lg: '0.875rem' },
+            }}>
               Showing {paginatedStocks.length} of {sortedStocks.length} stocks
             </Typography>
             {searchTerm && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{
+                fontSize: { xs: '0.8rem', lg: '0.875rem' },
+              }}>
                 Filtered from {stocksWithPredictions.length} total
               </Typography>
             )}
@@ -307,24 +391,37 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
         </Box>
 
         {/* Quick stats */}
-        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-          <Typography variant="body2" color="text.secondary">
+        <Box sx={{ 
+          display: 'flex', 
+          gap: { xs: 2, lg: 3 }, 
+          flexWrap: 'wrap',
+          justifyContent: { xs: 'space-between', lg: 'flex-start' },
+        }}>
+          <Typography variant="body2" color="text.secondary" sx={{
+            fontSize: { xs: '0.8rem', lg: '0.875rem' },
+          }}>
             Total Stocks: {stocksWithPredictions.length}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{
+            fontSize: { xs: '0.8rem', lg: '0.875rem' },
+          }}>
             With Predictions: {stocksWithPredictions.filter(s => s.prediction).length}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{
+            fontSize: { xs: '0.8rem', lg: '0.875rem' },
+          }}>
             Bullish: {stocksWithPredictions.filter(s => s.prediction?.prediction === 'UP').length}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{
+            fontSize: { xs: '0.8rem', lg: '0.875rem' },
+          }}>
             Bearish: {stocksWithPredictions.filter(s => s.prediction?.prediction === 'DOWN').length}
           </Typography>
         </Box>
       </Paper>
 
       {/* Error handling */}
-      {hasError && (
+      {hasError && stocks.error && (
         <Box sx={{ mb: 3 }}>
           <ErrorMessage error={stocks.error} onRetry={stocks.execute} />
         </Box>
@@ -337,9 +434,54 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
 
       {/* Stock table */}
       {stocks.data && (
-        <Paper>
-          <TableContainer>
-            <Table>
+        <Paper sx={{
+          borderRadius: { xs: 2, lg: 3 },
+          boxShadow: isDesktop ? '0 2px 12px rgba(0,0,0,0.08)' : 1,
+          overflow: 'hidden',
+        }}>
+          <TableContainer sx={{
+            maxHeight: isDesktop ? '70vh' : '60vh',
+            '&::-webkit-scrollbar': {
+              width: isDesktop ? '8px' : '6px',
+              height: isDesktop ? '8px' : '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: '#f1f1f1',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#c1c1c1',
+              borderRadius: '4px',
+              '&:hover': {
+                background: '#a1a1a1',
+              },
+            },
+          }}>
+            <Table stickyHeader sx={{
+              '& .MuiTableHead-root': {
+                '& .MuiTableCell-root': {
+                  backgroundColor: isDesktop ? '#f8f9fa' : 'inherit',
+                  fontWeight: 600,
+                  fontSize: { xs: '0.8rem', lg: '0.9rem' },
+                  padding: { xs: '12px 8px', lg: '16px 16px' },
+                  borderBottom: isDesktop ? '2px solid #e0e0e0' : '1px solid #e0e0e0',
+                },
+              },
+              '& .MuiTableBody-root': {
+                '& .MuiTableRow-root': {
+                  transition: 'background-color 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: isDesktop ? '#f5f5f5' : 'inherit',
+                    transform: isDesktop ? 'scale(1.01)' : 'none',
+                  },
+                  '& .MuiTableCell-root': {
+                    padding: { xs: '8px 8px', lg: '12px 16px' },
+                    fontSize: { xs: '0.8rem', lg: '0.9rem' },
+                    borderBottom: isDesktop ? '1px solid #f0f0f0' : '1px solid #e0e0e0',
+                  },
+                },
+              },
+            }}>
               <TableHead>
                 <TableRow>
                   <TableCell>
@@ -347,15 +489,27 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
                       active={sortConfig.field === 'symbol'}
                       direction={sortConfig.field === 'symbol' ? sortConfig.direction : 'asc'}
                       onClick={() => handleSort('symbol')}
+                      sx={{
+                        '& .MuiTableSortLabel-root': {
+                          fontSize: { xs: '0.8rem', lg: '0.9rem' },
+                          fontWeight: 600,
+                        },
+                      }}
                     >
                       Symbol
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <TableSortLabel
                       active={sortConfig.field === 'name'}
                       direction={sortConfig.field === 'name' ? sortConfig.direction : 'asc'}
                       onClick={() => handleSort('name')}
+                      sx={{
+                        '& .MuiTableSortLabel-root': {
+                          fontSize: { xs: '0.8rem', lg: '0.9rem' },
+                          fontWeight: 600,
+                        },
+                      }}
                     >
                       Name
                     </TableSortLabel>
@@ -451,26 +605,72 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: { xs: 'center', lg: 'space-between' },
+              alignItems: 'center',
+              p: { xs: 2, lg: 3 },
+              backgroundColor: isDesktop ? '#fafafa' : 'transparent',
+              borderTop: isDesktop ? '1px solid #e0e0e0' : 'none',
+              flexDirection: { xs: 'column', lg: 'row' },
+              gap: { xs: 2, lg: 0 },
+            }}>
+              <Typography variant="body2" color="text.secondary" sx={{
+                fontSize: { xs: '0.8rem', lg: '0.875rem' },
+                order: { xs: 2, lg: 1 },
+              }}>
+                Page {currentPage} of {totalPages} ({sortedStocks.length} total stocks)
+              </Typography>
               <Pagination
                 count={totalPages}
                 page={currentPage}
                 onChange={handlePageChange}
                 color="primary"
-                showFirstButton
-                showLastButton
+                showFirstButton={isDesktop}
+                showLastButton={isDesktop}
+                size={isDesktop ? "large" : "medium"}
+                siblingCount={isDesktop ? 2 : 1}
+                boundaryCount={isDesktop ? 2 : 1}
+                sx={{
+                  order: { xs: 1, lg: 2 },
+                  '& .MuiPaginationItem-root': {
+                    fontSize: { xs: '0.8rem', lg: '0.9rem' },
+                    minWidth: { xs: '32px', lg: '40px' },
+                    height: { xs: '32px', lg: '40px' },
+                    borderRadius: { xs: 1, lg: 1.5 },
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      transform: isDesktop ? 'translateY(-1px)' : 'none',
+                      boxShadow: isDesktop ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    },
+                  },
+                }}
               />
             </Box>
           )}
 
           {/* No results message */}
           {sortedStocks.length === 0 && !isLoading && (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" color="text.secondary">
+            <Box sx={{ 
+              p: { xs: 4, lg: 6 }, 
+              textAlign: 'center',
+              minHeight: { xs: '200px', lg: '300px' },
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Typography variant="h6" color="text.secondary" sx={{
+                fontSize: { xs: '1.125rem', lg: '1.25rem' },
+                mb: 1,
+              }}>
                 {searchTerm ? 'No stocks found matching your search' : 'No stocks available'}
               </Typography>
               {searchTerm && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ 
+                  mt: 1,
+                  fontSize: { xs: '0.875rem', lg: '0.95rem' },
+                }}>
                   Try adjusting your search terms
                 </Typography>
               )}
