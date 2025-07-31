@@ -1,0 +1,11 @@
+2025-07-31 05:38:42 | ERROR    | psx_ai_advisor.api_monitoring | log_error_with_context:260  | PID:30560 | Error: TimeoutError: 32 (of 96) futures unfinished (Context: operation=get_stocks)
+Traceback (most recent call last):
+  File "D:\webscrapping\Stock\api_server.py", line 434, in get_stocks
+    for future in as_completed(future_to_symbol, timeout=timeout_seconds):
+                  ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\concurrent\futures\_base.py", line 239, in as_completed
+    raise TimeoutError(
+            '%d (of %d) futures unfinished' % (
+            len(pending), total_futures))
+TimeoutError: 32 (of 96) futures unfinished
+2025-07-31 05:38:42 | ERROR    | psx_ai_advisor.api_monitoring | wrapper             :173  | PID:30560 | Failed get_stocks after 141.258s - 500: Unexpected error in get_stocks: 32 (of 96) futures unfinished

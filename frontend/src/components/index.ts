@@ -9,3 +9,6 @@ export { Layout } from './layout/Layout';
 export { Dashboard } from './dashboard/Dashboard';
 export { SummaryCard } from './dashboard/SummaryCard';
 export { SystemStatusIndicator } from './dashboard/SystemStatusIndicator';
+
+// Stock components
+export { StockList } from './stocks/StockList';

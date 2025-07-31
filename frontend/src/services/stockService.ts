@@ -13,7 +13,7 @@ export class StockService {
   }
 
   // Get stocks list
-  static async getStocks(limit?: number, search?: string): Promise<{
+  static async getStocks(limit?: number, search?: string, includePredictions: boolean = true): Promise<{
     stocks: StockInfo[];
     total_count: number;
     returned_count: number;
@@ -22,6 +22,7 @@ export class StockService {
     const params = new URLSearchParams();
     if (limit) params.append('limit', limit.toString());
     if (search) params.append('search', search);
+    params.append('include_predictions', includePredictions.toString());
     
     const response = await api.get(`/api/stocks?${params.toString()}`);
     return response.data;

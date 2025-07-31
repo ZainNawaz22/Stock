@@ -15,12 +15,14 @@ import numpy as np
 class StockSummary(BaseModel):
     """Basic stock information summary."""
     symbol: str = Field(..., description="Stock symbol")
-    company_name: str = Field(..., description="Company name")
-    record_count: Optional[int] = Field(None, description="Number of historical records")
-    current_price: Optional[float] = Field(None, description="Current stock price")
-    last_updated: Optional[str] = Field(None, description="Last update date")
-    date_range: Optional[Dict[str, str]] = Field(None, description="Date range of available data")
+    name: str = Field(..., description="Company name")
+    current_price: float = Field(..., description="Current stock price")
+    change: float = Field(..., description="Price change from previous close")
+    change_percent: float = Field(..., description="Percentage change from previous close")
+    volume: int = Field(..., description="Trading volume")
+    last_updated: str = Field(..., description="Last update date")
     has_data: bool = Field(..., description="Whether stock has valid data")
+    prediction: Optional[Dict[str, Any]] = Field(None, description="ML prediction result")
     error: Optional[str] = Field(None, description="Error message if any")
 
 

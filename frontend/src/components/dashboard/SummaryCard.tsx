@@ -29,6 +29,8 @@ interface SummaryCardProps {
     direction: 'up' | 'down';
     value: string;
   };
+  onClick?: () => void;
+  clickable?: boolean;
 }
 
 const iconMap = {
@@ -57,6 +59,8 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
   status = 'info',
   loading = false,
   trend,
+  onClick,
+  clickable = false,
 }) => {
   const IconComponent = icon ? iconMap[icon] : Assessment;
 
@@ -76,7 +80,19 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
   }
 
   return (
-    <Card sx={{ height: '100%', position: 'relative' }}>
+    <Card 
+      sx={{ 
+        height: '100%', 
+        position: 'relative',
+        cursor: clickable ? 'pointer' : 'default',
+        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+        '&:hover': clickable ? {
+          transform: 'translateY(-2px)',
+          boxShadow: 3,
+        } : {}
+      }}
+      onClick={clickable ? onClick : undefined}
+    >
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <IconComponent 

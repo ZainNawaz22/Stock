@@ -26,15 +26,19 @@ import { LoadingSpinner, ErrorMessage } from '../common';
 
 const DEFAULT_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onNavigateToStocks?: () => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigateToStocks }) => {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [refreshInterval] = useState(DEFAULT_REFRESH_INTERVAL);
   const [lastManualRefresh, setLastManualRefresh] = useState<Date | null>(null);
 
   // API hooks
   const systemStatus = useSystemStatus();
-  const stocks = useStocks(20); // Get first 20 stocks for summary
-  const predictions = usePredictions();
+  const stocks = useStocks(20, undefined, false); // Get first 20 stocks for summary, no predictions needed for dashboard
+  const predictions = usePredictions(); // Keep separate predictions for dashboard summary
 
   // Manual refresh function
   const handleManualRefresh = useCallback(async () => {
@@ -177,6 +181,8 @@ export const Dashboard: React.FC = () => {
           icon="storage"
           status="info"
           loading={systemStatus.loading}
+          clickable={true}
+          onClick={onNavigateToStocks}
         />
 
         {/* Active Predictions */}

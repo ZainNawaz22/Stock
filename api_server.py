@@ -89,7 +89,7 @@ _background_tasks_running = set()
 _thread_pool = ThreadPoolExecutor(max_workers=4)
 
 # Performance settings
-MAX_SYMBOLS_PER_REQUEST = 20
+MAX_SYMBOLS_PER_REQUEST = 200  # Increased to show all stocks
 MAX_DATA_POINTS_DEFAULT = 100
 SYSTEM_STATUS_SAMPLE_SIZE = 5
 
@@ -148,47 +148,140 @@ def clear_expired_cache() -> None:
             del _cached_technical_indicators[key]
 
 
-def process_symbol_summary(symbol: str) -> Dict[str, Any]:
+def process_symbol_summary(symbol: str, include_prediction: bool = True) -> Dict[str, Any]:
     """Process a single symbol summary in a thread-safe way."""
     try:
         # Check cache first
-        cached_summary = get_cached_data(_cached_stock_summaries, symbol, 15)
+        cache_key = f"{symbol}_{'with_pred' if include_prediction else 'no_pred'}"
+        cached_summary = get_cached_data(_cached_stock_summaries, cache_key, 15)
         if cached_summary:
             return cached_summary
         
-        # Get data summary
-        log_data_operation("get_summary", symbol)
-        summary = data_storage.get_data_summary(symbol)
-        
-        if summary.get('exists', False) and not summary.get('is_empty', True):
+        # Load actual stock data to get company name and current values
+        try:
+            stock_data = data_storage.load_stock_data(symbol)
+            
+            if stock_data.empty:
+                stock_info = {
+                    "symbol": symbol,
+                    "name": symbol,
+                    "current_price": 0.0,
+                    "change": 0.0,
+                    "change_percent": 0.0,
+                    "volume": 0,
+                    "last_updated": datetime.now().isoformat(),
+                    "has_data": False,
+                    "error": "No data available",
+                    "prediction": None
+                }
+            else:
+                # Get the latest record
+                latest_record = stock_data.iloc[-1]
+                
+                # Extract company name (fallback to symbol if not available)
+                company_name = latest_record.get('Company_Name', symbol)
+                if pd.isna(company_name) or company_name == '':
+                    company_name = symbol
+                
+                # Calculate change and change percent
+                current_price = float(latest_record.get('Close', 0))
+                previous_close = float(latest_record.get('Previous_Close', current_price))
+                change = current_price - previous_close
+                change_percent = (change / previous_close * 100) if previous_close != 0 else 0.0
+                
+                stock_info = {
+                    "symbol": symbol,
+                    "name": company_name,
+                    "current_price": current_price,
+                    "change": change,
+                    "change_percent": change_percent,
+                    "volume": int(latest_record.get('Volume', 0)),
+                    "last_updated": latest_record.get('Date', datetime.now()).strftime('%Y-%m-%dT%H:%M:%S') if hasattr(latest_record.get('Date'), 'strftime') else str(latest_record.get('Date', datetime.now().isoformat())),
+                    "has_data": True,
+                    "prediction": None
+                }
+                
+                # Add prediction if requested
+                if include_prediction:
+                    try:
+                        # Check if prediction is cached
+                        cached_prediction = get_cached_data(_cached_predictions, symbol, 30)
+                        if cached_prediction:
+                            stock_info["prediction"] = cached_prediction
+                        else:
+                            # Generate new prediction
+                            log_ml_operation("predict", symbol)
+                            prediction = ml_predictor.predict_movement(symbol)
+                            stock_info["prediction"] = prediction
+                            # Cache the prediction
+                            set_cached_data(_cached_predictions, symbol, prediction)
+                        
+                        logger.debug(f"Added prediction for {symbol}: {stock_info['prediction'].get('prediction', 'N/A')}")
+                        
+                    except InsufficientDataError as e:
+                        logger.warning(f"Insufficient data for prediction on {symbol}: {e}")
+                        stock_info["prediction"] = {
+                            "symbol": symbol,
+                            "error": "insufficient_data",
+                            "message": str(e),
+                            "prediction": None,
+                            "confidence": None
+                        }
+                    except Exception as e:
+                        logger.warning(f"Error generating prediction for {symbol}: {e}")
+                        stock_info["prediction"] = {
+                            "symbol": symbol,
+                            "error": "prediction_failed",
+                            "message": str(e),
+                            "prediction": None,
+                            "confidence": None
+                        }
+                
+        except FileNotFoundError:
             stock_info = {
                 "symbol": symbol,
-                "company_name": symbol,  # Using symbol as placeholder
-                "record_count": summary.get('record_count', 0),
-                "current_price": summary.get('price_range', {}).get('current_close'),
-                "last_updated": summary.get('last_updated'),
-                "date_range": summary.get('date_range', {}),
-                "has_data": True
-            }
-        else:
-            stock_info = {
-                "symbol": symbol,
-                "company_name": symbol,
+                "name": symbol,
+                "current_price": 0.0,
+                "change": 0.0,
+                "change_percent": 0.0,
+                "volume": 0,
+                "last_updated": datetime.now().isoformat(),
                 "has_data": False,
-                "error": "No valid data available"
+                "error": "No data file found",
+                "prediction": None
+            }
+        except Exception as e:
+            logger.warning(f"Error loading data for {symbol}: {e}")
+            stock_info = {
+                "symbol": symbol,
+                "name": symbol,
+                "current_price": 0.0,
+                "change": 0.0,
+                "change_percent": 0.0,
+                "volume": 0,
+                "last_updated": datetime.now().isoformat(),
+                "has_data": False,
+                "error": f"Data loading error: {str(e)}",
+                "prediction": None
             }
         
         # Cache the result
-        set_cached_data(_cached_stock_summaries, symbol, stock_info)
+        set_cached_data(_cached_stock_summaries, cache_key, stock_info)
         return stock_info
         
     except Exception as e:
         logger.warning(f"Error processing summary for {symbol}: {e}")
         return {
             "symbol": symbol,
-            "company_name": symbol,
+            "name": symbol,
+            "current_price": 0.0,
+            "change": 0.0,
+            "change_percent": 0.0,
+            "volume": 0,
+            "last_updated": datetime.now().isoformat(),
             "has_data": False,
-            "error": f"Processing error: {str(e)}"
+            "error": f"Processing error: {str(e)}",
+            "prediction": None
         }
 
 
@@ -278,7 +371,8 @@ async def root():
 @log_api_performance
 async def get_stocks(
     limit: Optional[int] = Query(None, description="Maximum number of stocks to return"),
-    search: Optional[str] = Query(None, description="Search term to filter stocks by symbol")
+    search: Optional[str] = Query(None, description="Search term to filter stocks by symbol"),
+    include_predictions: bool = Query(True, description="Include ML predictions for each stock")
 ) -> StocksListResponse:
     """
     Get list of available stocks with basic information.
@@ -291,7 +385,7 @@ async def get_stocks(
         Dict containing list of stocks with basic info
     """
     try:
-        logger.info(f"Getting stocks list (limit: {limit}, search: {search})")
+        logger.info(f"Getting stocks list (limit: {limit}, search: {search}, include_predictions: {include_predictions})")
         
         # Clear expired cache entries
         clear_expired_cache()
@@ -311,25 +405,33 @@ async def get_stocks(
             search_term = search.upper()
             symbols = [s for s in symbols if search_term in s.upper()]
         
-        # Apply reasonable limit to prevent timeouts
-        if limit is None or limit > MAX_SYMBOLS_PER_REQUEST:
+        # Apply reasonable limit to prevent timeouts only if a limit is explicitly requested
+        if limit is not None and limit > MAX_SYMBOLS_PER_REQUEST:
             limit = MAX_SYMBOLS_PER_REQUEST
-            logger.info(f"Applied default limit of {MAX_SYMBOLS_PER_REQUEST} symbols for performance")
+            logger.info(f"Applied maximum limit of {MAX_SYMBOLS_PER_REQUEST} symbols for performance")
+        elif limit is None:
+            # No limit specified, process all available symbols
+            logger.info("No limit specified, processing all available symbols")
         
         # Process symbols in parallel using thread pool
         symbols_to_process = symbols[:limit] if limit else symbols
         
+        # Adjust timeout based on whether predictions are included and number of symbols
+        base_timeout = 30 if include_predictions else 10
+        timeout_seconds = base_timeout + (len(symbols_to_process) // 10)  # Add time for more symbols
+        max_workers = 3 if include_predictions else 6  # Adjust workers for better performance
+        
         # Use ThreadPoolExecutor for parallel processing
         stocks_info = []
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
             future_to_symbol = {
-                executor.submit(process_symbol_summary, symbol): symbol 
+                executor.submit(process_symbol_summary, symbol, include_predictions): symbol 
                 for symbol in symbols_to_process
             }
             
             # Collect results as they complete
-            for future in as_completed(future_to_symbol, timeout=10):  # 10 second timeout
+            for future in as_completed(future_to_symbol, timeout=timeout_seconds):
                 try:
                     stock_info = future.result()
                     if stock_info.get('has_data', False):
@@ -339,9 +441,15 @@ async def get_stocks(
                     logger.warning(f"Error processing {symbol}: {e}")
                     stocks_info.append({
                         "symbol": symbol,
-                        "company_name": symbol,
+                        "name": symbol,
+                        "current_price": 0.0,
+                        "change": 0.0,
+                        "change_percent": 0.0,
+                        "volume": 0,
+                        "last_updated": datetime.now().isoformat(),
                         "has_data": False,
-                        "error": "Processing timeout or error"
+                        "error": "Processing timeout or error",
+                        "prediction": None
                     })
         
         # Sort by symbol
@@ -352,11 +460,14 @@ async def get_stocks(
         
         logger.info(f"Returning {returned_count} stocks (total available: {total_count})")
         
+        # Filter out stocks without data for the main response
+        valid_stocks = [stock for stock in stocks_info if stock.get('has_data', False)]
+        
         return StocksListResponse(
-            stocks=[StockSummary(**stock) for stock in stocks_info],
+            stocks=[StockSummary(**stock) for stock in valid_stocks],
             total_count=total_count,
-            returned_count=returned_count,
-            has_more=total_count > returned_count,
+            returned_count=len(valid_stocks),
+            has_more=total_count > len(valid_stocks),
             processing_time_optimized=True
         )
         

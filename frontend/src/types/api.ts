@@ -23,6 +23,7 @@ export interface StockInfo {
   change_percent: number;
   volume: number;
   last_updated: string;
+  prediction?: PredictionResult;
 }
 
 export interface PredictionResult {
