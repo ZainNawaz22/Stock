@@ -20,7 +20,11 @@ import {
   useTheme,
   useMediaQuery,
   Button,
+  Snackbar,
+  Alert,
+  LinearProgress,
 } from '@mui/material';
+import ReplayIcon from '@mui/icons-material/Replay';
 import {
   Search as SearchIcon,
   TrendingUp as TrendingUpIcon,
@@ -28,9 +32,10 @@ import {
   Remove as NeutralIcon,
   Refresh as RefreshIcon,
   ArrowBack as ArrowBackIcon,
-  ViewColumn as ViewColumnIcon,
-  FilterList as FilterListIcon,
   Psychology as PredictIcon,
+  Replay as RetryIcon,
+  CheckCircle as SuccessIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useStocks, usePredictionRegenerate } from '../../hooks';
 import { LoadingSpinner, ErrorMessage } from '../common';
@@ -50,7 +55,6 @@ interface SortConfig {
   direction: SortDirection;
 }
 
-const ITEMS_PER_PAGE_OPTIONS = [25, 50, 100];
 const DEFAULT_ITEMS_PER_PAGE = 25;
 
 interface StockListProps {
@@ -60,31 +64,171 @@ interface StockListProps {
 export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
-  const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
   
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const [itemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     field: 'symbol',
     direction: 'asc',
   });
 
+  // Enhanced state for per-stock operations
+  const [stockLoadingStates, setStockLoadingStates] = useState<Map<string, boolean>>(new Map());
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, { isUpdating: boolean; previousPrediction?: PredictionResult }>>(new Map());
+  const [retryAttempts, setRetryAttempts] = useState<Map<string, number>>(new Map());
+  
+  // Toast notification state
+  const [toastState, setToastState] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
+  // Helper functions for enhanced UX
+  const showToast = useCallback((message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
+    setToastState({
+      open: true,
+      message,
+      severity,
+    });
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToastState(prev => ({ ...prev, open: false }));
+  }, []);
+
+  const setStockLoading = useCallback((symbol: string, loading: boolean) => {
+    setStockLoadingStates(prev => {
+      const newMap = new Map(prev);
+      if (loading) {
+        newMap.set(symbol, true);
+      } else {
+        newMap.delete(symbol);
+      }
+      return newMap;
+    });
+  }, []);
+
+  const setOptimisticUpdate = useCallback((symbol: string, isUpdating: boolean, previousPrediction?: PredictionResult) => {
+    setOptimisticUpdates(prev => {
+      const newMap = new Map(prev);
+      if (isUpdating) {
+        newMap.set(symbol, { isUpdating, previousPrediction });
+      } else {
+        newMap.delete(symbol);
+      }
+      return newMap;
+    });
+  }, []);
+
+  const incrementRetryAttempt = useCallback((symbol: string) => {
+    setRetryAttempts(prev => {
+      const newMap = new Map(prev);
+      const currentAttempts = newMap.get(symbol) || 0;
+      newMap.set(symbol, currentAttempts + 1);
+      return newMap;
+    });
+  }, []);
+
+  const resetRetryAttempts = useCallback((symbol: string) => {
+    setRetryAttempts(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(symbol);
+      return newMap;
+    });
+  }, []);
+
   // API hooks - fetch all stocks with predictions included
   const stocks = useStocks(undefined, undefined, true); // Include predictions
 
   // Regenerate predictions hook
-  const { regenerate: regeneratePredictions, loading: regenerateLoading } = usePredictionRegenerate({
+  const { regenerate: regeneratePredictions, regenerateOne, loading: regenerateLoading } = usePredictionRegenerate({
     onSuccess: (data) => {
       console.log(`Successfully regenerated ${data.successful_count} predictions`);
       // Refresh the stocks data to show updated predictions
       stocks.execute();
+      
+      // Show success toast
+      if (data.successful_count > 0) {
+        showToast(
+          `Successfully regenerated ${data.successful_count} prediction${data.successful_count > 1 ? 's' : ''}`, 
+          'success'
+        );
+      }
+      
+      if (data.failed_count > 0) {
+        showToast(
+          `${data.failed_count} prediction${data.failed_count > 1 ? 's' : ''} failed to regenerate`, 
+          'warning'
+        );
+      }
     },
     onError: (error) => {
       console.error('Error regenerating predictions:', error);
+      showToast('Failed to regenerate predictions. Please try again.', 'error');
     }
   });
+
+  // Enhanced individual stock regeneration with retry and optimistic updates
+  const handleStockRegenerate = useCallback(async (stock: StockWithPrediction, maxRetries: number = 2) => {
+    const symbol = stock.symbol;
+    const currentAttempts = retryAttempts.get(symbol) || 0;
+    
+    if (currentAttempts >= maxRetries) {
+      showToast(`Maximum retry attempts reached for ${symbol}`, 'error');
+      return;
+    }
+
+    try {
+      // Set loading state for this specific stock
+      setStockLoading(symbol, true);
+      
+      // Optimistic update - show "Updating..." state
+      setOptimisticUpdate(symbol, true, stock.prediction);
+      
+      // Attempt regeneration
+      await regenerateOne(symbol, false);
+      
+      // Success - reset retry attempts and show success toast
+      resetRetryAttempts(symbol);
+      showToast(`Successfully updated prediction for ${symbol}`, 'success');
+      
+    } catch (error) {
+      console.error('Failed to regenerate prediction for', symbol, error);
+      
+      // Increment retry attempts
+      incrementRetryAttempt(symbol);
+      
+      // Revert optimistic update
+      setOptimisticUpdate(symbol, false);
+      
+      const newAttempts = currentAttempts + 1;
+      if (newAttempts < maxRetries) {
+        // Show retry option
+        showToast(
+          `Failed to update ${symbol}. Attempt ${newAttempts}/${maxRetries}. Retrying...`, 
+          'warning'
+        );
+        
+        // Retry with exponential backoff
+        setTimeout(() => {
+          handleStockRegenerate(stock, maxRetries);
+        }, Math.pow(2, newAttempts) * 1000); // 2s, 4s, 8s delays
+      } else {
+        showToast(`Failed to update prediction for ${symbol} after ${maxRetries} attempts`, 'error');
+      }
+    } finally {
+      // Clear loading and optimistic update states
+      setStockLoading(symbol, false);
+      setOptimisticUpdate(symbol, false);
+    }
+  }, [regenerateOne, retryAttempts, setStockLoading, setOptimisticUpdate, resetRetryAttempts, incrementRetryAttempt, showToast]);
 
   // Use stocks data directly since predictions are now included
   const stocksWithPredictions = useMemo<StockWithPrediction[]>(() => {
@@ -237,8 +381,31 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
     return value.toString();
   };
 
-  // Render prediction chip
-  const renderPredictionChip = (prediction?: PredictionResult) => {
+  // Render prediction chip with optimistic updates
+  const renderPredictionChip = (prediction?: PredictionResult, symbol?: string) => {
+    // Check if this stock has an optimistic update
+    const optimisticUpdate = symbol ? optimisticUpdates.get(symbol) : undefined;
+    
+    if (optimisticUpdate?.isUpdating) {
+      return (
+        <Chip
+          icon={<CircularProgress size={12} />}
+          label="Updating..."
+          size="small"
+          variant="outlined"
+          color="info"
+          sx={{ 
+            animation: 'pulse 1.5s ease-in-out infinite',
+            '@keyframes pulse': {
+              '0%': { opacity: 1 },
+              '50%': { opacity: 0.7 },
+              '100%': { opacity: 1 },
+            }
+          }}
+        />
+      );
+    }
+
     if (!prediction) {
       return (
         <Chip
@@ -360,7 +527,7 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
               color="secondary"
               startIcon={regenerateLoading ? <CircularProgress size={16} color="inherit" /> : <PredictIcon />}
               onClick={handleRepredictAll}
-              disabled={isLoading || stocksWithPredictions.length === 0}
+              disabled={isLoading || stocksWithPredictions.length === 0 || regenerateLoading}
               size={isDesktop ? "large" : "medium"}
               sx={{
                 borderRadius: { xs: 2, lg: 2.5 },
@@ -372,9 +539,12 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
                   transform: isDesktop ? 'translateY(-2px)' : 'none',
                   boxShadow: isDesktop ? '0 6px 16px rgba(156, 39, 176, 0.3)' : 'inherit',
                 },
+                '&:disabled': {
+                  opacity: regenerateLoading ? 0.7 : 0.5,
+                },
               }}
             >
-              {regenerateLoading ? 'Re-predicting...' : (isDesktop ? 'Re-predict All' : 'Re-predict')}
+              {regenerateLoading ? `Re-predicting ${paginatedStocks.length} stocks...` : (isDesktop ? 'Re-predict All' : 'Re-predict')}
             </Button>
           </Tooltip>
         </Box>
@@ -468,6 +638,36 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
           </Typography>
         </Box>
       </Paper>
+
+      {/* Progress indicator for bulk operations */}
+      {regenerateLoading && (
+        <Paper sx={{ 
+          p: 2, 
+          mb: 3,
+          borderRadius: { xs: 2, lg: 3 },
+          boxShadow: isDesktop ? '0 2px 12px rgba(0,0,0,0.08)' : 1,
+        }}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Re-predicting {paginatedStocks.length} stocks...
+            </Typography>
+            <LinearProgress 
+              variant="indeterminate" 
+              sx={{ 
+                height: 6, 
+                borderRadius: 3,
+                backgroundColor: 'rgba(0,0,0,0.1)',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 3,
+                },
+              }} 
+            />
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            This may take up to 45 seconds. Please wait...
+          </Typography>
+        </Paper>
+      )}
 
       {/* Error handling */}
       {hasError && stocks.error && (
@@ -600,6 +800,7 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
                     </TableSortLabel>
                   </TableCell>
                   <TableCell align="right">Last Updated</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -639,12 +840,52 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      {renderPredictionChip(stock.prediction)}
+                      {renderPredictionChip(stock.prediction, stock.symbol)}
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" color="text.secondary">
                         {new Date(stock.last_updated).toLocaleString()}
                       </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={
+                        stockLoadingStates.get(stock.symbol) 
+                          ? "Updating prediction..." 
+                          : retryAttempts.get(stock.symbol) 
+                            ? `Re-predict ${stock.symbol} (Attempt ${(retryAttempts.get(stock.symbol) || 0) + 1})` 
+                            : `Re-predict ${stock.symbol}`
+                      }>
+                        <span>
+                          <Button
+                            variant="text"
+                            color="primary"
+                            startIcon={
+                              stockLoadingStates.get(stock.symbol) 
+                                ? <CircularProgress size={16} color="inherit" /> 
+                                : retryAttempts.get(stock.symbol)
+                                  ? <RetryIcon />
+                                  : <ReplayIcon />
+                            }
+                            onClick={() => handleStockRegenerate(stock)}
+                            disabled={stockLoadingStates.get(stock.symbol) || regenerateLoading}
+                            size={isDesktop ? "medium" : "small"}
+                            sx={{
+                              minWidth: 'auto',
+                              transition: 'all 0.2s ease',
+                              '&:disabled': {
+                                opacity: stockLoadingStates.get(stock.symbol) ? 0.7 : 0.5,
+                              },
+                            }}
+                          >
+                            {stockLoadingStates.get(stock.symbol) 
+                              ? 'Updating...' 
+                              : retryAttempts.get(stock.symbol) 
+                                ? 'Retry' 
+                                : 'Re-predict'
+                            }
+                          </Button>
+                        </span>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -727,6 +968,30 @@ export const StockList: React.FC<StockListProps> = ({ onNavigateBack }) => {
           )}
         </Paper>
       )}
+
+      {/* Toast Notifications */}
+      <Snackbar
+        open={toastState.open}
+        autoHideDuration={6000}
+        onClose={hideToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={hideToast}
+          severity={toastState.severity}
+          variant="filled"
+          sx={{ 
+            width: '100%',
+            boxShadow: isDesktop ? '0 4px 12px rgba(0,0,0,0.15)' : 2,
+          }}
+          iconMapping={{
+            success: <SuccessIcon fontSize="inherit" />,
+            error: <ErrorIcon fontSize="inherit" />,
+          }}
+        >
+          {toastState.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

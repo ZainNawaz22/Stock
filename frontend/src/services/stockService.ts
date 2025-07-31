@@ -72,4 +72,14 @@ export class StockService {
     const response = await api.post(`/api/predictions/regenerate?${params.toString()}`);
     return response.data;
   }
+
+  // Regenerate prediction for a single symbol
+  static async regeneratePredictionForSymbol(symbol: string, retrainModel?: boolean): Promise<PredictionResult> {
+    const params = new URLSearchParams();
+    if (retrainModel) {
+      params.append('retrain_model', 'true');
+    }
+    const response = await api.post(`/api/predictions/${encodeURIComponent(symbol)}/regenerate?${params.toString()}`);
+    return response.data;
+  }
 }

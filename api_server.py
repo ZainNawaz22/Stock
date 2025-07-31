@@ -917,6 +917,46 @@ async def regenerate_predictions(
         raise handle_api_error(e, "regenerate_predictions")
 
 
+@app.post("/api/predictions/{symbol}/regenerate", response_model=PredictionResult)
+@log_api_performance
+async def regenerate_single_prediction(
+    symbol: str = Path(..., description="Stock symbol to regenerate"),
+    retrain_model: bool = Query(False, description="Whether to retrain the model before predicting")
+) -> PredictionResult:
+    """
+    Regenerate prediction for a single stock symbol.
+    Clears the cache for this symbol and regenerates its prediction.
+    Optionally retrains the model first.
+    """
+    try:
+        symbol_upper = symbol.upper()
+        # clear caches for this symbol
+        clear_symbol_caches([symbol_upper])
+
+        # optional retraining
+        if retrain_model:
+            try:
+                logger.info(f"Retraining model for {symbol_upper} (single regenerate)")
+                ml_predictor.train_model(symbol_upper)
+            except Exception as e:
+                logger.warning(f"Retraining failed for {symbol_upper}: {e}")
+
+        # generate fresh prediction
+        log_ml_operation("regenerate_single", symbol_upper)
+        prediction = ml_predictor.predict_movement(symbol_upper)
+
+        # cache fresh prediction
+        set_cached_data(_cached_predictions, symbol_upper, prediction)
+
+        # update last update time
+        global _last_system_update
+        _last_system_update = datetime.now()
+
+        return PredictionResult(**prediction)
+    except Exception as e:
+        raise handle_api_error(e, f"regenerate_single_prediction for {symbol}")
+
+
 @app.get("/api/system/status", response_model=SystemStatus)
 @log_api_performance
 async def get_system_status() -> SystemStatus:
