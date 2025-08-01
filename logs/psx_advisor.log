@@ -12054,3 +12054,734 @@ TimeoutError: 23 (of 96) futures unfinished
 2025-08-01 03:23:57 | DEBUG    | psx_ai_advisor.data_storage | get_available_symbols:326  | Found 96 symbols with data files
 2025-08-01 03:23:57 | DEBUG    | psx_ai_advisor.data_storage | get_available_symbols:326  | Found 96 symbols with data files
 2025-08-01 03:24:22 | DEBUG    | psx_ai_advisor.data_storage | get_available_symbols:326  | Found 96 symbols with data files
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-01 03:56:04 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-01 03:56:04 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 03:56:05 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-01 03:56:05 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-01 03:56:05 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-01 03:56:05 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-01 03:56:05 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-01 03:56:05 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.ml_predictor | train_model         :303  | Training with hyperparameter optimization enabled
+2025-08-01 03:56:05 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:121  | Starting hyperparameter optimization...
+2025-08-01 03:57:29 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:160  | Hyperparameter optimization completed
+2025-08-01 03:57:29 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:161  | Best cross-validation score: 0.5633
+2025-08-01 03:57:29 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:162  | Best parameters found: {'max_depth': 6, 'max_features': 'sqrt', 'min_samples_leaf': 8, 'min_samples_split': 8, 'n_estimators': 200}
+2025-08-01 03:57:29 | ERROR    | __main__                  | test_hyperparameter_optimization:76   | Test failed: Model training failed for PTC: sklearn.ensemble._forest.RandomForestClassifier() got multiple values for keyword argument 'random_state' (Code: ModelTrainingError)
+2025-08-01 03:58:42 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-01 03:58:42 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-01 03:58:42 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-01 03:58:42 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-01 03:58:42 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-01 03:58:43 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-01 03:58:43 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | train_model         :303  | Training with hyperparameter optimization enabled
+2025-08-01 03:58:43 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:121  | Starting hyperparameter optimization...
+2025-08-01 04:00:04 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:160  | Hyperparameter optimization completed
+2025-08-01 04:00:04 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:161  | Best cross-validation score: 0.5633
+2025-08-01 04:00:04 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:162  | Best parameters found: {'max_depth': 6, 'max_features': 'sqrt', 'min_samples_leaf': 8, 'min_samples_split': 8, 'n_estimators': 200}
+2025-08-01 04:00:06 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.6174, Precision=0.5845, Recall=0.6174
+2025-08-01 04:00:07 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5061, Precision=0.5574, Recall=0.5061
+2025-08-01 04:00:09 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5787, Precision=0.5382, Recall=0.5787
+2025-08-01 04:00:10 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.6126, Precision=0.5725, Recall=0.6126
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5642, Precision=0.5993, Recall=0.5642
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5758 ± 0.0402
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5642, Precision: 0.5993, Recall: 0.5642
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5758 ± 0.0402
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'Return_1d', 'OBV', 'Return_5d', 'ROC_12']
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :394  | Hyperparameter optimization enabled - using optimized parameters
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-01 04:00:12 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-01 04:00:12 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 04:00:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-01 04:00:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-01 04:00:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-01 04:00:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-01 04:00:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-01 04:00:13 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-01 04:00:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :322  | Training with default hyperparameters
+2025-08-01 04:00:15 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.5884, Precision=0.5781, Recall=0.5884
+2025-08-01 04:00:16 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5036, Precision=0.5524, Recall=0.5036
+2025-08-01 04:00:16 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5375, Precision=0.5008, Recall=0.5375
+2025-08-01 04:00:17 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.5642, Precision=0.5203, Recall=0.5642
+2025-08-01 04:00:18 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5569, Precision=0.5521, Recall=0.5569
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5501 ± 0.0284
+2025-08-01 04:00:18 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-01 04:00:18 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5569, Precision: 0.5521, Recall: 0.5569
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5501 ± 0.0284
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'OBV', 'Return_1d', 'ROC_12', 'Return_5d']
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :396  | Using default hyperparameters
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :420  | Generating prediction for PTC
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-01 04:00:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-01 04:00:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-01 04:00:19 | WARNING  | psx_ai_advisor.ml_predictor | _calculate_recent_accuracy:646  | Could not calculate recent accuracy for PTC: Insufficient data for training. Need 50 samples, got 30 (Code: InsufficientDataError)
+2025-08-01 04:00:19 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :501  | Prediction for PTC: DOWN (confidence: 0.6977)
+2025-08-02 00:19:17 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-02 00:19:17 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:19:31 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:19:31 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:19:32 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:19:32 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:19:32 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:19:32 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:19:32 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:19:32 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.ml_predictor | train_model         :303  | Training with hyperparameter optimization enabled
+2025-08-02 00:19:32 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:121  | Starting hyperparameter optimization...
+2025-08-02 00:21:12 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:160  | Hyperparameter optimization completed
+2025-08-02 00:21:12 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:161  | Best cross-validation score: 0.5633
+2025-08-02 00:21:12 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:162  | Best parameters found: {'max_depth': 6, 'max_features': 'sqrt', 'min_samples_leaf': 8, 'min_samples_split': 8, 'n_estimators': 200}
+2025-08-02 00:21:15 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.6174, Precision=0.5845, Recall=0.6174
+2025-08-02 00:21:15 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5061, Precision=0.5574, Recall=0.5061
+2025-08-02 00:21:16 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5787, Precision=0.5382, Recall=0.5787
+2025-08-02 00:21:17 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.6126, Precision=0.5725, Recall=0.6126
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5642, Precision=0.5993, Recall=0.5642
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5758 ± 0.0402
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5642, Precision: 0.5993, Recall: 0.5642
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5758 ± 0.0402
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'Return_1d', 'OBV', 'Return_5d', 'ROC_12']
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :394  | Hyperparameter optimization enabled - using optimized parameters
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:21:18 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:21:18 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:21:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:21:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:21:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:21:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:21:19 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:21:19 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.ml_predictor | train_model         :303  | Training with hyperparameter optimization enabled
+2025-08-02 00:21:19 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:121  | Starting hyperparameter optimization...
+2025-08-02 00:22:48 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:160  | Hyperparameter optimization completed
+2025-08-02 00:22:48 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:161  | Best cross-validation score: 0.5633
+2025-08-02 00:22:48 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:162  | Best parameters found: {'max_depth': 6, 'max_features': 'sqrt', 'min_samples_leaf': 8, 'min_samples_split': 8, 'n_estimators': 200}
+2025-08-02 00:22:50 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.6174, Precision=0.5845, Recall=0.6174
+2025-08-02 00:22:51 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5061, Precision=0.5574, Recall=0.5061
+2025-08-02 00:22:51 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5787, Precision=0.5382, Recall=0.5787
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.6126, Precision=0.5725, Recall=0.6126
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5642, Precision=0.5993, Recall=0.5642
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5758 ± 0.0402
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5642, Precision: 0.5993, Recall: 0.5642
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5758 ± 0.0402
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'Return_1d', 'OBV', 'Return_5d', 'ROC_12']
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :394  | Hyperparameter optimization enabled - using optimized parameters
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:22:52 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:22:52 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:22:53 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:22:53 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:22:53 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:22:53 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:22:53 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:22:53 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:22:53 | INFO     | psx_ai_advisor.ml_predictor | train_model         :322  | Training with default hyperparameters
+2025-08-02 00:22:53 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.5884, Precision=0.5781, Recall=0.5884
+2025-08-02 00:22:54 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5036, Precision=0.5524, Recall=0.5036
+2025-08-02 00:22:54 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5375, Precision=0.5008, Recall=0.5375
+2025-08-02 00:22:54 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.5642, Precision=0.5203, Recall=0.5642
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5569, Precision=0.5521, Recall=0.5569
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5501 ± 0.0284
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5569, Precision: 0.5521, Recall: 0.5569
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5501 ± 0.0284
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'OBV', 'Return_1d', 'ROC_12', 'Return_5d']
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | train_model         :396  | Using default hyperparameters
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :420  | Generating prediction for PTC
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:22:55 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:22:55 | WARNING  | psx_ai_advisor.ml_predictor | _calculate_recent_accuracy:646  | Could not calculate recent accuracy for PTC: Insufficient data for training. Need 50 samples, got 30 (Code: InsufficientDataError)
+2025-08-02 00:22:55 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :501  | Prediction for PTC: DOWN (confidence: 0.6977)
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:23:15 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:23:15 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | train_model         :303  | Training with hyperparameter optimization enabled
+2025-08-02 00:23:15 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:121  | Starting hyperparameter optimization...
+2025-08-02 00:24:26 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:160  | Hyperparameter optimization completed
+2025-08-02 00:24:26 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:161  | Best cross-validation score: 0.5633
+2025-08-02 00:24:26 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:162  | Best parameters found: {'max_depth': 6, 'max_features': 'sqrt', 'min_samples_leaf': 8, 'min_samples_split': 8, 'n_estimators': 200}
+2025-08-02 00:24:28 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.6174, Precision=0.5845, Recall=0.6174
+2025-08-02 00:24:28 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5061, Precision=0.5574, Recall=0.5061
+2025-08-02 00:24:29 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5787, Precision=0.5382, Recall=0.5787
+2025-08-02 00:24:29 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.6126, Precision=0.5725, Recall=0.6126
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5642, Precision=0.5993, Recall=0.5642
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5758 ± 0.0402
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5642, Precision: 0.5993, Recall: 0.5642
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5758 ± 0.0402
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'Return_1d', 'OBV', 'Return_5d', 'ROC_12']
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :394  | Hyperparameter optimization enabled - using optimized parameters
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:24:30 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:24:30 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:24:30 | INFO     | psx_ai_advisor.ml_predictor | train_model         :322  | Training with default hyperparameters
+2025-08-02 00:24:31 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.5884, Precision=0.5781, Recall=0.5884
+2025-08-02 00:24:31 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5036, Precision=0.5524, Recall=0.5036
+2025-08-02 00:24:32 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5375, Precision=0.5008, Recall=0.5375
+2025-08-02 00:24:32 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.5642, Precision=0.5203, Recall=0.5642
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5569, Precision=0.5521, Recall=0.5569
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5501 ± 0.0284
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5569, Precision: 0.5521, Recall: 0.5569
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5501 ± 0.0284
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'OBV', 'Return_1d', 'ROC_12', 'Return_5d']
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | train_model         :396  | Using default hyperparameters
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :420  | Generating prediction for PTC
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:24:33 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:24:33 | WARNING  | psx_ai_advisor.ml_predictor | _calculate_recent_accuracy:646  | Could not calculate recent accuracy for PTC: Insufficient data for training. Need 50 samples, got 30 (Code: InsufficientDataError)
+2025-08-02 00:24:33 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :501  | Prediction for PTC: DOWN (confidence: 0.6977)
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:25:13 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:25:13 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | train_model         :303  | Training with hyperparameter optimization enabled
+2025-08-02 00:25:13 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:121  | Starting hyperparameter optimization...
+2025-08-02 00:26:30 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:160  | Hyperparameter optimization completed
+2025-08-02 00:26:30 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:161  | Best cross-validation score: 0.5633
+2025-08-02 00:26:30 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:162  | Best parameters found: {'max_depth': 6, 'max_features': 'sqrt', 'min_samples_leaf': 8, 'min_samples_split': 8, 'n_estimators': 200}
+2025-08-02 00:26:31 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.6174, Precision=0.5845, Recall=0.6174
+2025-08-02 00:26:32 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5061, Precision=0.5574, Recall=0.5061
+2025-08-02 00:26:32 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5787, Precision=0.5382, Recall=0.5787
+2025-08-02 00:26:33 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.6126, Precision=0.5725, Recall=0.6126
+2025-08-02 00:26:33 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5642, Precision=0.5993, Recall=0.5642
+2025-08-02 00:26:33 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5758 ± 0.0402
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5642, Precision: 0.5993, Recall: 0.5642
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5758 ± 0.0402
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'Return_1d', 'OBV', 'Return_5d', 'ROC_12']
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :394  | Hyperparameter optimization enabled - using optimized parameters
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :420  | Generating prediction for PTC
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:26:34 | WARNING  | psx_ai_advisor.ml_predictor | _calculate_recent_accuracy:646  | Could not calculate recent accuracy for PTC: Insufficient data for training. Need 50 samples, got 30 (Code: InsufficientDataError)
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :501  | Prediction for PTC: DOWN (confidence: 0.6822)
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:26:34 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:26:34 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:26:34 | INFO     | psx_ai_advisor.ml_predictor | train_model         :322  | Training with default hyperparameters
+2025-08-02 00:26:35 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.5884, Precision=0.5781, Recall=0.5884
+2025-08-02 00:26:35 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5036, Precision=0.5524, Recall=0.5036
+2025-08-02 00:26:35 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5375, Precision=0.5008, Recall=0.5375
+2025-08-02 00:26:36 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.5642, Precision=0.5203, Recall=0.5642
+2025-08-02 00:26:36 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5569, Precision=0.5521, Recall=0.5569
+2025-08-02 00:26:36 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5501 ± 0.0284
+2025-08-02 00:26:36 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:26:36 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:26:36 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:26:36 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5569, Precision: 0.5521, Recall: 0.5569
+2025-08-02 00:26:36 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5501 ± 0.0284
+2025-08-02 00:26:36 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'OBV', 'Return_1d', 'ROC_12', 'Return_5d']
+2025-08-02 00:26:36 | INFO     | psx_ai_advisor.ml_predictor | train_model         :396  | Using default hyperparameters
+2025-08-02 00:26:36 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:28:58 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:28:58 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | train_model         :303  | Training with hyperparameter optimization enabled
+2025-08-02 00:28:58 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:121  | Starting hyperparameter optimization...
+2025-08-02 00:30:36 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:160  | Hyperparameter optimization completed
+2025-08-02 00:30:36 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:161  | Best cross-validation score: 0.5633
+2025-08-02 00:30:36 | INFO     | psx_ai_advisor.ml_predictor | _optimize_hyperparameters:162  | Best parameters found: {'max_depth': 6, 'max_features': 'sqrt', 'min_samples_leaf': 8, 'min_samples_split': 8, 'n_estimators': 200}
+2025-08-02 00:30:37 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-02 00:30:37 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-02 00:30:37 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-02 00:30:37 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-02 00:30:37 | DEBUG    | psx_ai_advisor.data_storage | _ensure_directories :55   | Ensured directories exist: data, backups
+2025-08-02 00:30:37 | INFO     | psx_ai_advisor.technical_analysis | __init__            :29   | TechnicalAnalyzer initialized
+2025-08-02 00:30:37 | DEBUG    | psx_ai_advisor.ml_predictor | _ensure_model_directories:96   | Ensured model directories exist: data\models, data\scalers
+2025-08-02 00:30:37 | INFO     | psx_ai_advisor.ml_predictor | __init__            :89   | MLPredictor initialized with RandomForest model
+2025-08-02 00:30:38 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.6174, Precision=0.5845, Recall=0.6174
+2025-08-02 00:30:39 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5061, Precision=0.5574, Recall=0.5061
+2025-08-02 00:30:40 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5787, Precision=0.5382, Recall=0.5787
+2025-08-02 00:30:40 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.6126, Precision=0.5725, Recall=0.6126
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5642, Precision=0.5993, Recall=0.5642
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5758 ± 0.0402
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5642, Precision: 0.5993, Recall: 0.5642
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5758 ± 0.0402
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'Return_1d', 'OBV', 'Return_5d', 'ROC_12']
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | train_model         :394  | Hyperparameter optimization enabled - using optimized parameters
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :420  | Generating prediction for PTC
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:30:41 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:30:41 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:30:42 | WARNING  | psx_ai_advisor.ml_predictor | _calculate_recent_accuracy:646  | Could not calculate recent accuracy for PTC: Insufficient data for training. Need 50 samples, got 30 (Code: InsufficientDataError)
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | predict_movement    :501  | Prediction for PTC: DOWN (confidence: 0.6822)
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | train_model         :262  | Starting model training for PTC
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.data_storage | load_stock_data     :296  | Loaded 2479 records for PTC from data\PTC.csv
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | train_model         :276  | Data sorted by date for time-series aware splitting
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :187  | Missing technical indicators, calculating them...
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :382  | Calculating comprehensive technical indicators...
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :385  | Calculating RSI...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rsi       :109  | Calculated RSI_14 for 2479 data points
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :388  | Calculating MACD...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_macd      :162  | Calculated MACD(12,26,9) for 2479 data points
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :394  | Calculating Price Rate of Change...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_price_rate_of_change:227  | Calculated ROC_12 for 2479 data points
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :398  | Calculating Moving Averages...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_50 for 2479 data points
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :402  | Calculating Bollinger Bands...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_bollinger_bands:201  | Calculated Bollinger Bands(20,2) for 2479 data points
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :409  | Calculating Volume indicators...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_sma       :63   | Calculated SMA_20 for 2479 data points
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_obv       :269  | Calculated OBV for 2479 data points
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :414  | Calculating return features...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 1-day returns
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 2-day returns
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_returns   :295  | Calculated 5-day returns
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :419  | Calculating rolling volatility...
+2025-08-02 00:30:42 | DEBUG    | psx_ai_advisor.technical_analysis | calculate_rolling_volatility:328  | Calculated 20-day rolling volatility for 2479 data points
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.technical_analysis | add_all_indicators  :428  | Successfully added 16 technical indicators: RSI_14, MACD, MACD_Signal, MACD_Histogram, ROC_12, SMA_20, SMA_50, BB_Upper, BB_Middle, BB_Lower, Volume_MA_20, OBV, Return_1d, Return_2d, Return_5d, Volatility_20d
+2025-08-02 00:30:42 | WARNING  | psx_ai_advisor.ml_predictor | prepare_features    :219  | NaN values found in features, applying forward fill
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :235  | Prepared features: 2478 samples, 16 features
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | prepare_features    :236  | Target distribution - UP: 1009, DOWN: 1469
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | train_model         :293  | TimeSeriesSplit - Training samples: 2065, Test samples: 413
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | train_model         :294  | Training period: indices 0-2064, Test period: indices 2065-2477
+2025-08-02 00:30:42 | INFO     | psx_ai_advisor.ml_predictor | train_model         :322  | Training with default hyperparameters
+2025-08-02 00:30:43 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 1: Accuracy=0.5884, Precision=0.5781, Recall=0.5884
+2025-08-02 00:30:43 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 2: Accuracy=0.5036, Precision=0.5524, Recall=0.5036
+2025-08-02 00:30:44 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 3: Accuracy=0.5375, Precision=0.5008, Recall=0.5375
+2025-08-02 00:30:44 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 4: Accuracy=0.5642, Precision=0.5203, Recall=0.5642
+2025-08-02 00:30:45 | DEBUG    | psx_ai_advisor.ml_predictor | _perform_time_series_cv:572  | Fold 5: Accuracy=0.5569, Precision=0.5521, Recall=0.5569
+2025-08-02 00:30:45 | INFO     | psx_ai_advisor.ml_predictor | _perform_time_series_cv:590  | Time-series CV completed: Mean accuracy = 0.5501 ± 0.0284
+2025-08-02 00:30:45 | DEBUG    | psx_ai_advisor.ml_predictor | save_model          :666  | Model saved for PTC at data\models\PTC_model.pkl
+2025-08-02 00:30:45 | DEBUG    | psx_ai_advisor.ml_predictor | save_scaler         :721  | Scaler saved for PTC at data\scalers\PTC_scaler.pkl
+2025-08-02 00:30:45 | INFO     | psx_ai_advisor.ml_predictor | train_model         :389  | Model training completed for PTC
+2025-08-02 00:30:45 | INFO     | psx_ai_advisor.ml_predictor | train_model         :390  | Final test accuracy: 0.5569, Precision: 0.5521, Recall: 0.5569
+2025-08-02 00:30:45 | INFO     | psx_ai_advisor.ml_predictor | train_model         :391  | CV Mean accuracy: 0.5501 ± 0.0284
+2025-08-02 00:30:45 | INFO     | psx_ai_advisor.ml_predictor | train_model         :392  | Top features: ['Return_2d', 'OBV', 'Return_1d', 'ROC_12', 'Return_5d']
+2025-08-02 00:30:45 | INFO     | psx_ai_advisor.ml_predictor | train_model         :396  | Using default hyperparameters
+2025-08-02 00:30:45 | INFO     | psx_ai_advisor.ml_predictor | train_model         :397  | Time-series aware cross-validation completed - no lookahead bias

@@ -13,9 +13,10 @@ import numpy as np
 from typing import Dict, Any, Tuple, Optional, List
 from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, TimeSeriesSplit
+from sklearn.model_selection import train_test_split, TimeSeriesSplit, RandomizedSearchCV
 from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
 from sklearn.preprocessing import StandardScaler
+from scipy.stats import randint
 import warnings
 
 from .config_loader import get_section, get_value
@@ -106,6 +107,63 @@ class MLPredictor:
         clean_symbol = "".join(c for c in symbol if c.isalnum() or c in ('-', '_')).upper()
         return os.path.join(self.scalers_dir, f"{clean_symbol}_scaler.pkl")
     
+    def _optimize_hyperparameters(self, X: np.ndarray, y: np.ndarray) -> RandomForestClassifier:
+        """
+        Optimize Random Forest hyperparameters using RandomizedSearchCV with TimeSeriesSplit.
+        
+        Args:
+            X (np.ndarray): Feature matrix
+            y (np.ndarray): Target variable
+            
+        Returns:
+            RandomForestClassifier: Best estimator from hyperparameter optimization
+        """
+        logger.info("Starting hyperparameter optimization...")
+        
+        # Define parameter ranges for optimization
+        param_distributions = {
+            'n_estimators': randint(50, 301),  # 50-300 random integers
+            'max_depth': randint(5, 21),       # 5-20 random integers
+            'min_samples_split': randint(2, 16),  # 2-15 random integers
+            'min_samples_leaf': randint(1, 9),    # 1-8 random integers
+            'max_features': ['sqrt', 'log2', 0.5]
+        }
+        
+        # Use TimeSeriesSplit for cross-validation (never regular KFold)
+        tscv = TimeSeriesSplit(n_splits=3)
+        
+        # Create base Random Forest classifier
+        rf = RandomForestClassifier(
+            random_state=self.random_state,
+            n_jobs=-1
+        )
+        
+        # Perform randomized search
+        random_search = RandomizedSearchCV(
+            estimator=rf,
+            param_distributions=param_distributions,
+            n_iter=50,  # Number of parameter settings sampled
+            cv=tscv,    # Use TimeSeriesSplit for cross-validation
+            scoring='accuracy',  # Optimize for accuracy
+            random_state=self.random_state,
+            n_jobs=-1,
+            verbose=0
+        )
+        
+        # Fit the randomized search
+        random_search.fit(X, y)
+        
+        # Log the best parameters found
+        best_params = random_search.best_params_
+        best_score = random_search.best_score_
+        
+        logger.info(f"Hyperparameter optimization completed")
+        logger.info(f"Best cross-validation score: {best_score:.4f}")
+        logger.info(f"Best parameters found: {best_params}")
+        
+        # Return the best estimator
+        return random_search.best_estimator_
+
     def prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """
         Prepare feature matrix and target variable from stock data with technical indicators.
@@ -185,12 +243,13 @@ class MLPredictor:
             else:
                 raise MLPredictorError(f"Error preparing features: {e}")
     
-    def train_model(self, symbol: str) -> Dict[str, Any]:
+    def train_model(self, symbol: str, optimize_params: bool = True) -> Dict[str, Any]:
         """
         Train a Random Forest model for a specific stock symbol.
         
         Args:
             symbol (str): Stock symbol to train model for
+            optimize_params (bool): Whether to use hyperparameter optimization (default: True)
             
         Returns:
             Dict[str, Any]: Training results including metrics and model info
@@ -239,17 +298,37 @@ class MLPredictor:
             X_train_scaled = scaler.fit_transform(X_train)
             X_test_scaled = scaler.transform(X_test)
             
-            # Train Random Forest model
-            model = RandomForestClassifier(
-                n_estimators=self.n_estimators,
-                random_state=self.random_state,
-                max_depth=10,
-                min_samples_split=5,
-                min_samples_leaf=2,
-                n_jobs=-1
-            )
-            
-            model.fit(X_train_scaled, y_train)
+            # Train Random Forest model with or without hyperparameter optimization
+            if optimize_params:
+                logger.info("Training with hyperparameter optimization enabled")
+                # Use the full scaled dataset for hyperparameter optimization
+                X_full_scaled = scaler.fit_transform(X)
+                model = self._optimize_hyperparameters(X_full_scaled, y)
+                
+                # Refit the scaler and model on the training set for consistency
+                X_train_scaled = scaler.fit_transform(X_train)
+                X_test_scaled = scaler.transform(X_test)
+                
+                # Create a new model with the optimized parameters and fit on training data
+                optimized_params = model.get_params()
+                # Ensure consistent random_state and n_jobs
+                optimized_params['random_state'] = self.random_state
+                optimized_params['n_jobs'] = -1
+                
+                optimized_model = RandomForestClassifier(**optimized_params)
+                optimized_model.fit(X_train_scaled, y_train)
+                model = optimized_model
+            else:
+                logger.info("Training with default hyperparameters")
+                model = RandomForestClassifier(
+                    n_estimators=self.n_estimators,
+                    random_state=self.random_state,
+                    max_depth=10,
+                    min_samples_split=5,
+                    min_samples_leaf=2,
+                    n_jobs=-1
+                )
+                model.fit(X_train_scaled, y_train)
             
             # Make predictions on test set
             y_pred = model.predict(X_test_scaled)
@@ -261,7 +340,7 @@ class MLPredictor:
             recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
             
             # Perform time-series cross-validation for more robust evaluation
-            cv_scores = self._perform_time_series_cv(X, y, tscv)
+            cv_scores = self._perform_time_series_cv(X, y, tscv, model.get_params() if optimize_params else None)
             
             # Feature importance
             feature_importance = dict(zip(self.feature_columns, model.feature_importances_))
@@ -293,12 +372,13 @@ class MLPredictor:
                     'UP': int(np.sum(y)),
                     'DOWN': int(len(y) - np.sum(y))
                 },
-                'model_parameters': {
+                'model_parameters': model.get_params() if optimize_params else {
                     'n_estimators': self.n_estimators,
                     'max_depth': 10,
                     'min_samples_split': 5,
                     'min_samples_leaf': 2
                 },
+                'hyperparameter_optimization': optimize_params,
                 'time_series_split_info': {
                     'n_splits': self.n_splits,
                     'max_train_size': self.max_train_size,
@@ -310,6 +390,10 @@ class MLPredictor:
             logger.info(f"Final test accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
             logger.info(f"CV Mean accuracy: {cv_scores.get('mean_accuracy', 0):.4f} ± {cv_scores.get('std_accuracy', 0):.4f}")
             logger.info(f"Top features: {[f[0] for f in top_features]}")
+            if optimize_params:
+                logger.info(f"Hyperparameter optimization enabled - using optimized parameters")
+            else:
+                logger.info(f"Using default hyperparameters")
             logger.info("Time-series aware cross-validation completed - no lookahead bias")
             
             return training_results
@@ -424,7 +508,7 @@ class MLPredictor:
             else:
                 raise MLPredictorError(f"Prediction failed for {symbol}: {e}")
     
-    def _perform_time_series_cv(self, X: np.ndarray, y: np.ndarray, tscv: TimeSeriesSplit) -> Dict[str, Any]:
+    def _perform_time_series_cv(self, X: np.ndarray, y: np.ndarray, tscv: TimeSeriesSplit, optimized_params: Optional[Dict] = None) -> Dict[str, Any]:
         """
         Perform time-series cross-validation to get robust performance estimates.
         
@@ -432,6 +516,7 @@ class MLPredictor:
             X (np.ndarray): Feature matrix
             y (np.ndarray): Target variable
             tscv (TimeSeriesSplit): Time series cross-validator
+            optimized_params (Optional[Dict]): Optimized hyperparameters to use, if available
             
         Returns:
             Dict[str, Any]: Cross-validation scores and statistics
@@ -453,15 +538,22 @@ class MLPredictor:
                 X_train_fold_scaled = scaler_fold.fit_transform(X_train_fold)
                 X_test_fold_scaled = scaler_fold.transform(X_test_fold)
                 
-                # Train model for this fold
-                model_fold = RandomForestClassifier(
-                    n_estimators=self.n_estimators,
-                    random_state=self.random_state,
-                    max_depth=10,
-                    min_samples_split=5,
-                    min_samples_leaf=2,
-                    n_jobs=-1
-                )
+                # Train model for this fold using optimized parameters if available
+                if optimized_params:
+                    fold_params = optimized_params.copy()
+                    # Ensure consistent random_state and n_jobs
+                    fold_params['random_state'] = self.random_state
+                    fold_params['n_jobs'] = -1
+                    model_fold = RandomForestClassifier(**fold_params)
+                else:
+                    model_fold = RandomForestClassifier(
+                        n_estimators=self.n_estimators,
+                        random_state=self.random_state,
+                        max_depth=10,
+                        min_samples_split=5,
+                        min_samples_leaf=2,
+                        n_jobs=-1
+                    )
                 
                 model_fold.fit(X_train_fold_scaled, y_train_fold)
                 

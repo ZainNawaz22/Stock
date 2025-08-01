@@ -21,3 +21,4 @@ Traceback (most recent call last):
             len(pending), total_futures))
 TimeoutError: 23 (of 96) futures unfinished
 2025-08-01 01:53:02 | ERROR    | psx_ai_advisor.api_monitoring | wrapper             :173  | PID:19612 | Failed get_stocks after 50.615s - 500: Unexpected error in get_stocks: 23 (of 96) futures unfinished
+2025-08-01 03:57:29 | ERROR    | __main__                  | test_hyperparameter_optimization:76   | PID:22628 | Test failed: Model training failed for PTC: sklearn.ensemble._forest.RandomForestClassifier() got multiple values for keyword argument 'random_state' (Code: ModelTrainingError)
