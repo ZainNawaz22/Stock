@@ -27,3 +27,8 @@ TimeoutError: 23 (of 96) futures unfinished
 2025-08-04 07:13:56 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:17828 | Failed to download data for WAFI
 2025-08-04 07:13:56 | ERROR    | yfinance                  | history             :281  | PID:17828 | $KASB.KA: possibly delisted; no price data found  (period=5y) (Yahoo error = "No data found, symbol may be delisted")
 2025-08-04 07:13:56 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:17828 | Failed to download data for KASB
+2025-08-05 01:16:47 | ERROR    | yfinance                  | _fetch              :592  | PID:18052 | HTTP Error 404: 
+2025-08-05 01:16:48 | ERROR    | yfinance                  | history             :281  | PID:18052 | $KASB.KA: possibly delisted; no price data found  (period=10y) (Yahoo error = "No data found, symbol may be delisted")
+2025-08-05 01:16:48 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:18052 | Failed to download data for KASB
+2025-08-05 01:16:49 | ERROR    | yfinance                  | history             :281  | PID:18052 | $WAFI.KA: possibly delisted; no price data found  (period=10y) (Yahoo error = "No data found, symbol may be delisted")
+2025-08-05 01:16:49 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:18052 | Failed to download data for WAFI

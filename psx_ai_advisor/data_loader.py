@@ -210,13 +210,61 @@ class PSXDataLoader:
             logger.error(f"Failed to backup data for {symbol}: {e}")
             return False
     
-    def save_data_safely(self, data: pd.DataFrame, symbol: str) -> bool:
+    def merge_with_existing_data(self, new_data: pd.DataFrame, symbol: str) -> pd.DataFrame:
         """
-        Save data with fail-safe mechanism.
+        Merge new data with existing data, removing duplicates and handling gaps.
+        
+        Args:
+            new_data: Newly downloaded data
+            symbol: Stock symbol
+            
+        Returns:
+            Merged and deduplicated DataFrame
+        """
+        final_file = os.path.join(self.data_dir, f"{symbol}_historical_data.csv")
+        
+        # If no existing file, return new data
+        if not os.path.exists(final_file):
+            logger.info(f"No existing data for {symbol}, using new data only")
+            return new_data.drop_duplicates(subset=['Date']).sort_values('Date').reset_index(drop=True)
+        
+        try:
+            # Load existing data
+            existing_data = pd.read_csv(final_file)
+            logger.info(f"Loaded {len(existing_data)} existing records for {symbol}")
+            
+            # Convert Date columns to datetime for proper comparison
+            existing_data['Date'] = pd.to_datetime(existing_data['Date'], utc=True)
+            new_data['Date'] = pd.to_datetime(new_data['Date'], utc=True)
+            
+            # Combine datasets
+            combined_data = pd.concat([existing_data, new_data], ignore_index=True)
+            
+            # Remove duplicates based on Date, keeping the latest data (from new_data)
+            # Sort by Date first, then drop duplicates keeping last occurrence
+            combined_data = combined_data.sort_values('Date')
+            deduplicated_data = combined_data.drop_duplicates(subset=['Date'], keep='last')
+            
+            # Final sort and reset index
+            final_data = deduplicated_data.sort_values('Date').reset_index(drop=True)
+            
+            logger.info(f"Merged data for {symbol}: {len(existing_data)} existing + {len(new_data)} new = {len(combined_data)} total, {len(final_data)} after deduplication")
+            
+            return final_data
+            
+        except Exception as e:
+            logger.error(f"Error merging data for {symbol}: {e}")
+            logger.info(f"Falling back to new data only for {symbol}")
+            return new_data.drop_duplicates(subset=['Date']).sort_values('Date').reset_index(drop=True)
+
+    def save_data_safely(self, data: pd.DataFrame, symbol: str, merge_with_existing: bool = True) -> bool:
+        """
+        Save data with fail-safe mechanism and optional merging with existing data.
         
         Args:
             data: Stock data to save
             symbol: Stock symbol
+            merge_with_existing: Whether to merge with existing data or replace completely
             
         Returns:
             True if save successful, False otherwise
@@ -224,6 +272,10 @@ class PSXDataLoader:
         # Create temporary file first
         temp_file = None
         try:
+            # Merge with existing data if requested
+            if merge_with_existing:
+                data = self.merge_with_existing_data(data, symbol)
+            
             # Create temporary file
             with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as tf:
                 temp_file = tf.name
@@ -247,7 +299,7 @@ class PSXDataLoader:
             final_file = os.path.join(self.data_dir, f"{symbol}_historical_data.csv")
             shutil.move(temp_file, final_file)
             
-            logger.info(f"Successfully saved data for {symbol} to {final_file}")
+            logger.info(f"Successfully saved {len(data)} records for {symbol} to {final_file}")
             return True
             
         except Exception as e:
@@ -260,19 +312,20 @@ class PSXDataLoader:
                     pass
             return False
     
-    def update_single_stock(self, symbol: str, period: str = "5y") -> bool:
+    def update_single_stock(self, symbol: str, period: str = "5y", merge_with_existing: bool = True) -> bool:
         """
         Update data for a single stock with full fail-safe mechanism.
         
         Args:
             symbol: Stock symbol
             period: Period for data download
+            merge_with_existing: Whether to merge with existing data or replace completely
             
         Returns:
             True if update successful, False otherwise
         """
         try:
-            logger.info(f"Starting update for {symbol}")
+            logger.info(f"Starting update for {symbol} (merge_with_existing={merge_with_existing})")
             
             # Download new data
             new_data = self.download_single_stock(symbol, period)
@@ -285,8 +338,8 @@ class PSXDataLoader:
                 logger.error(f"Data validation failed for {symbol}")
                 return False
             
-            # Save data safely
-            if not self.save_data_safely(new_data, symbol):
+            # Save data safely with merge option
+            if not self.save_data_safely(new_data, symbol, merge_with_existing):
                 logger.error(f"Failed to save data for {symbol}")
                 return False
             
@@ -296,8 +349,75 @@ class PSXDataLoader:
         except Exception as e:
             logger.error(f"Unexpected error updating {symbol}: {e}")
             return False
+
+    def clean_and_optimize_data(self, symbol: str) -> bool:
+        """
+        Clean and optimize existing data file by removing duplicates and sorting.
+        
+        Args:
+            symbol: Stock symbol
+            
+        Returns:
+            True if optimization successful, False otherwise
+        """
+        final_file = os.path.join(self.data_dir, f"{symbol}_historical_data.csv")
+        
+        if not os.path.exists(final_file):
+            logger.warning(f"No data file exists for {symbol}")
+            return False
+        
+        try:
+            # Load existing data
+            data = pd.read_csv(final_file)
+            original_count = len(data)
+            
+            # Convert Date to datetime
+            data['Date'] = pd.to_datetime(data['Date'], utc=True)
+            
+            # Remove duplicates and sort
+            cleaned_data = data.drop_duplicates(subset=['Date'], keep='last')
+            cleaned_data = cleaned_data.sort_values('Date').reset_index(drop=True)
+            
+            # Save optimized data
+            if self.save_data_safely(cleaned_data, symbol, merge_with_existing=False):
+                logger.info(f"Optimized {symbol}: {original_count} -> {len(cleaned_data)} records")
+                return True
+            else:
+                logger.error(f"Failed to save optimized data for {symbol}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error optimizing data for {symbol}: {e}")
+            return False
+
+    def clean_all_data(self) -> Dict[str, bool]:
+        """
+        Clean and optimize all existing data files.
+        
+        Returns:
+            Dictionary with symbol -> success status
+        """
+        results = {}
+        
+        # Get all existing data files
+        if not os.path.exists(self.data_dir):
+            logger.warning("Data directory does not exist")
+            return results
+        
+        data_files = [f for f in os.listdir(self.data_dir) if f.endswith('_historical_data.csv')]
+        symbols = [f.replace('_historical_data.csv', '') for f in data_files]
+        
+        logger.info(f"Cleaning and optimizing {len(symbols)} data files")
+        
+        for symbol in symbols:
+            results[symbol] = self.clean_and_optimize_data(symbol)
+        
+        successful = sum(1 for success in results.values() if success)
+        logger.info(f"Data optimization complete: {successful}/{len(symbols)} files optimized")
+        
+        return results
     
-    def update_multiple_stocks(self, symbols: List[str], period: str = "5y", max_workers: int = 4) -> Dict[str, bool]:
+    def update_multiple_stocks(self, symbols: List[str], period: str = "5y", max_workers: int = 4, merge_with_existing: bool = True) -> Dict[str, bool]:
         """
         Update data for multiple stocks in parallel.
         
@@ -305,6 +425,7 @@ class PSXDataLoader:
             symbols: List of stock symbols
             period: Period for data download
             max_workers: Maximum number of concurrent downloads
+            merge_with_existing: Whether to merge with existing data or replace completely
             
         Returns:
             Dictionary mapping symbol to success status
@@ -316,7 +437,7 @@ class PSXDataLoader:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all download tasks
             future_to_symbol = {
-                executor.submit(self.update_single_stock, symbol, period): symbol
+                executor.submit(self.update_single_stock, symbol, period, merge_with_existing): symbol
                 for symbol in symbols
             }
             
@@ -349,27 +470,29 @@ class PSXDataLoader:
         
         return results
     
-    def update_kse100_stocks(self, period: str = "10y", max_workers: int = 4) -> Dict[str, bool]:
+    def update_kse100_stocks(self, period: str = "10y", max_workers: int = 4, merge_with_existing: bool = True) -> Dict[str, bool]:
         """
         Update all KSE-100 stocks.
         
         Args:
             period: Period for data download
             max_workers: Maximum number of concurrent downloads
+            merge_with_existing: Whether to merge with existing data or replace completely
             
         Returns:
             Dictionary mapping symbol to success status
         """
         logger.info("Starting KSE-100 stocks update")
-        return self.update_multiple_stocks(self.KSE_100_SYMBOLS, period, max_workers)
+        return self.update_multiple_stocks(self.KSE_100_SYMBOLS, period, max_workers, merge_with_existing)
     
-    def update_existing_stocks(self, period: str = "5y", max_workers: int = 4) -> Dict[str, bool]:
+    def update_existing_stocks(self, period: str = "5y", max_workers: int = 4, merge_with_existing: bool = True) -> Dict[str, bool]:
         """
         Update all stocks that already have data files.
         
         Args:
             period: Period for data download
             max_workers: Maximum number of concurrent downloads
+            merge_with_existing: Whether to merge with existing data or replace completely
             
         Returns:
             Dictionary mapping symbol to success status
@@ -388,7 +511,7 @@ class PSXDataLoader:
             return {}
         
         logger.info(f"Found {len(existing_symbols)} existing stocks to update")
-        return self.update_multiple_stocks(existing_symbols, period, max_workers)
+        return self.update_multiple_stocks(existing_symbols, period, max_workers, merge_with_existing)
     
     def restore_from_backup(self, symbol: str) -> bool:
         """
@@ -437,49 +560,77 @@ class PSXDataLoader:
 
 
 # Convenience functions for easy usage
-def update_all_kse100_data(period: str = "5y", max_workers: int = 4) -> Dict[str, bool]:
+def update_all_kse100_data(period: str = "5y", max_workers: int = 4, merge_with_existing: bool = True) -> Dict[str, bool]:
     """
     Convenience function to update all KSE-100 stock data.
     
     Args:
         period: Period for data download (1y, 2y, 5y, 10y, max)
         max_workers: Maximum number of concurrent downloads
+        merge_with_existing: Whether to merge with existing data or replace completely
         
     Returns:
         Dictionary mapping symbol to success status
     """
     loader = PSXDataLoader()
-    return loader.update_kse100_stocks(period, max_workers)
+    return loader.update_kse100_stocks(period, max_workers, merge_with_existing)
 
 
-def update_existing_data(period: str = "2y", max_workers: int = 4) -> Dict[str, bool]:
+def update_existing_data(period: str = "2y", max_workers: int = 4, merge_with_existing: bool = True) -> Dict[str, bool]:
     """
     Convenience function to update all existing stock data.
     
     Args:
         period: Period for data download (1y, 2y, 5y, 10y, max)
         max_workers: Maximum number of concurrent downloads
+        merge_with_existing: Whether to merge with existing data or replace completely
         
     Returns:
         Dictionary mapping symbol to success status
     """
     loader = PSXDataLoader()
-    return loader.update_existing_stocks(period, max_workers)
+    return loader.update_existing_stocks(period, max_workers, merge_with_existing)
 
 
-def update_single_stock_data(symbol: str, period: str = "5y") -> bool:
+def update_single_stock_data(symbol: str, period: str = "5y", merge_with_existing: bool = True) -> bool:
     """
     Convenience function to update a single stock's data.
     
     Args:
         symbol: Stock symbol
         period: Period for data download
+        merge_with_existing: Whether to merge with existing data or replace completely
         
     Returns:
         True if successful, False otherwise
     """
     loader = PSXDataLoader()
-    return loader.update_single_stock(symbol, period)
+    return loader.update_single_stock(symbol, period, merge_with_existing)
+
+
+def clean_all_stock_data() -> Dict[str, bool]:
+    """
+    Convenience function to clean and optimize all stock data files.
+    
+    Returns:
+        Dictionary mapping symbol to success status
+    """
+    loader = PSXDataLoader()
+    return loader.clean_all_data()
+
+
+def clean_single_stock_data(symbol: str) -> bool:
+    """
+    Convenience function to clean and optimize a single stock's data.
+    
+    Args:
+        symbol: Stock symbol
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    loader = PSXDataLoader()
+    return loader.clean_and_optimize_data(symbol)
 
 
 if __name__ == "__main__":
