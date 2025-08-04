@@ -28,6 +28,7 @@ from psx_ai_advisor.data_storage import DataStorage
 from psx_ai_advisor.ml_predictor import MLPredictor
 from psx_ai_advisor.technical_analysis import TechnicalAnalyzer
 from psx_ai_advisor.data_acquisition import PSXDataAcquisition
+from psx_ai_advisor.data_loader import PSXDataLoader
 from psx_ai_advisor.config_loader import get_section, get_value
 from psx_ai_advisor.logging_config import get_logger
 from psx_ai_advisor.exceptions import (
@@ -1304,6 +1305,357 @@ async def get_performance_metrics():
         
     except Exception as e:
         raise handle_api_error(e, "get_performance_metrics")
+
+
+# Background task storage for tracking data loading operations
+data_loading_tasks = {}
+data_loading_lock = threading.Lock()
+
+
+def background_data_update(task_id: str, update_type: str, symbols: Optional[List[str]] = None, period: str = "5y"):
+    """
+    Background task for updating stock data.
+    
+    Args:
+        task_id: Unique task identifier
+        update_type: Type of update (kse100, existing, single, custom)
+        symbols: List of symbols for custom updates
+        period: Period for data download
+    """
+    try:
+        with data_loading_lock:
+            data_loading_tasks[task_id]["status"] = "running"
+            data_loading_tasks[task_id]["start_time"] = datetime.now()
+        
+        loader = PSXDataLoader()
+        
+        if update_type == "kse100":
+            results = loader.update_kse100_stocks(period=period)
+        elif update_type == "existing":
+            results = loader.update_existing_stocks(period=period)
+        elif update_type == "single" and symbols:
+            results = {}
+            for symbol in symbols:
+                results[symbol] = loader.update_single_stock(symbol, period)
+        elif update_type == "custom" and symbols:
+            results = loader.update_multiple_stocks(symbols, period)
+        else:
+            raise ValueError(f"Invalid update type: {update_type}")
+        
+        # Calculate summary
+        successful = sum(1 for success in results.values() if success)
+        failed = len(results) - successful
+        
+        with data_loading_lock:
+            data_loading_tasks[task_id].update({
+                "status": "completed",
+                "end_time": datetime.now(),
+                "results": results,
+                "summary": {
+                    "total_stocks": len(results),
+                    "successful": successful,
+                    "failed": failed,
+                    "success_rate": successful / len(results) if results else 0
+                }
+            })
+        
+        logger.info(f"Data update task {task_id} completed: {successful}/{len(results)} successful")
+        
+    except Exception as e:
+        logger.error(f"Data update task {task_id} failed: {e}")
+        with data_loading_lock:
+            data_loading_tasks[task_id].update({
+                "status": "failed",
+                "end_time": datetime.now(),
+                "error": str(e)
+            })
+
+
+@app.post("/data/update/kse100")
+async def update_kse100_data(
+    background_tasks: BackgroundTasks,
+    period: str = Query("5y", description="Period for data download (1y, 2y, 5y, 10y, max)")
+):
+    """
+    Start background update of all KSE-100 stock data.
+    
+    Args:
+        period: Period for data download
+        
+    Returns:
+        Task information for tracking update progress
+    """
+    try:
+        task_id = f"kse100_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        with data_loading_lock:
+            data_loading_tasks[task_id] = {
+                "task_id": task_id,
+                "type": "kse100",
+                "status": "queued",
+                "created_time": datetime.now(),
+                "period": period,
+                "description": f"Update all KSE-100 stocks with {period} data"
+            }
+        
+        background_tasks.add_task(background_data_update, task_id, "kse100", None, period)
+        
+        logger.info(f"KSE-100 data update task {task_id} queued")
+        
+        return {
+            "task_id": task_id,
+            "status": "queued",
+            "message": "KSE-100 data update started in background",
+            "period": period,
+            "stocks_count": len(PSXDataLoader.KSE_100_SYMBOLS),
+            "tracking_url": f"/data/update/status/{task_id}"
+        }
+        
+    except Exception as e:
+        raise handle_api_error(e, "update_kse100_data")
+
+
+@app.post("/data/update/existing")
+async def update_existing_data(
+    background_tasks: BackgroundTasks,
+    period: str = Query("2y", description="Period for data download (1y, 2y, 5y, 10y, max)")
+):
+    """
+    Start background update of all existing stock data.
+    
+    Args:
+        period: Period for data download
+        
+    Returns:
+        Task information for tracking update progress
+    """
+    try:
+        task_id = f"existing_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Count existing stocks
+        data_dir = "data"
+        existing_count = 0
+        if os.path.exists(data_dir):
+            existing_count = len([f for f in os.listdir(data_dir) if f.endswith('_historical_data.csv')])
+        
+        with data_loading_lock:
+            data_loading_tasks[task_id] = {
+                "task_id": task_id,
+                "type": "existing",
+                "status": "queued",
+                "created_time": datetime.now(),
+                "period": period,
+                "description": f"Update all existing stocks with {period} data"
+            }
+        
+        background_tasks.add_task(background_data_update, task_id, "existing", None, period)
+        
+        logger.info(f"Existing data update task {task_id} queued for {existing_count} stocks")
+        
+        return {
+            "task_id": task_id,
+            "status": "queued",
+            "message": "Existing stocks data update started in background",
+            "period": period,
+            "existing_stocks_count": existing_count,
+            "tracking_url": f"/data/update/status/{task_id}"
+        }
+        
+    except Exception as e:
+        raise handle_api_error(e, "update_existing_data")
+
+
+@app.post("/data/update/stocks")
+async def update_custom_stocks(
+    background_tasks: BackgroundTasks,
+    symbols: List[str] = Query(..., description="List of stock symbols to update"),
+    period: str = Query("5y", description="Period for data download (1y, 2y, 5y, 10y, max)")
+):
+    """
+    Start background update of specific stock symbols.
+    
+    Args:
+        symbols: List of stock symbols to update
+        period: Period for data download
+        
+    Returns:
+        Task information for tracking update progress
+    """
+    try:
+        if not symbols:
+            raise HTTPException(status_code=400, detail="At least one symbol must be provided")
+        
+        # Validate and clean symbols
+        clean_symbols = [symbol.upper().strip() for symbol in symbols if symbol.strip()]
+        if not clean_symbols:
+            raise HTTPException(status_code=400, detail="No valid symbols provided")
+        
+        task_id = f"custom_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        with data_loading_lock:
+            data_loading_tasks[task_id] = {
+                "task_id": task_id,
+                "type": "custom",
+                "status": "queued",
+                "created_time": datetime.now(),
+                "period": period,
+                "symbols": clean_symbols,
+                "description": f"Update {len(clean_symbols)} custom stocks with {period} data"
+            }
+        
+        background_tasks.add_task(background_data_update, task_id, "custom", clean_symbols, period)
+        
+        logger.info(f"Custom stocks update task {task_id} queued for symbols: {clean_symbols}")
+        
+        return {
+            "task_id": task_id,
+            "status": "queued",
+            "message": f"Custom stocks data update started in background",
+            "period": period,
+            "symbols": clean_symbols,
+            "symbols_count": len(clean_symbols),
+            "tracking_url": f"/data/update/status/{task_id}"
+        }
+        
+    except Exception as e:
+        raise handle_api_error(e, "update_custom_stocks")
+
+
+@app.get("/data/update/status/{task_id}")
+async def get_update_status(task_id: str):
+    """
+    Get status of a data update task.
+    
+    Args:
+        task_id: Task identifier
+        
+    Returns:
+        Task status and progress information
+    """
+    try:
+        with data_loading_lock:
+            if task_id not in data_loading_tasks:
+                raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+            
+            task_info = data_loading_tasks[task_id].copy()
+        
+        # Calculate runtime if applicable
+        if task_info["status"] == "running" and "start_time" in task_info:
+            task_info["runtime_seconds"] = (datetime.now() - task_info["start_time"]).total_seconds()
+        elif task_info["status"] == "completed" and "start_time" in task_info and "end_time" in task_info:
+            task_info["runtime_seconds"] = (task_info["end_time"] - task_info["start_time"]).total_seconds()
+        
+        # Format datetime objects for JSON response
+        for key in ["created_time", "start_time", "end_time"]:
+            if key in task_info and task_info[key]:
+                task_info[key] = task_info[key].isoformat()
+        
+        return task_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_api_error(e, "get_update_status")
+
+
+@app.get("/data/update/tasks")
+async def list_update_tasks():
+    """
+    List all data update tasks.
+    
+    Returns:
+        List of all update tasks with their status
+    """
+    try:
+        with data_loading_lock:
+            tasks = []
+            for task_id, task_info in data_loading_tasks.items():
+                task_copy = task_info.copy()
+                
+                # Format datetime objects
+                for key in ["created_time", "start_time", "end_time"]:
+                    if key in task_copy and task_copy[key]:
+                        task_copy[key] = task_copy[key].isoformat()
+                
+                # Remove large results data for list view
+                if "results" in task_copy:
+                    task_copy["has_results"] = True
+                    del task_copy["results"]
+                
+                tasks.append(task_copy)
+        
+        return {
+            "tasks": tasks,
+            "total_tasks": len(tasks),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise handle_api_error(e, "list_update_tasks")
+
+
+@app.delete("/data/update/tasks/{task_id}")
+async def delete_update_task(task_id: str):
+    """
+    Delete a completed or failed update task.
+    
+    Args:
+        task_id: Task identifier
+        
+    Returns:
+        Deletion confirmation
+    """
+    try:
+        with data_loading_lock:
+            if task_id not in data_loading_tasks:
+                raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+            
+            task = data_loading_tasks[task_id]
+            if task["status"] == "running":
+                raise HTTPException(status_code=400, detail="Cannot delete running task")
+            
+            del data_loading_tasks[task_id]
+        
+        logger.info(f"Deleted data update task {task_id}")
+        
+        return {
+            "message": f"Task {task_id} deleted successfully",
+            "deleted_task_id": task_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_api_error(e, "delete_update_task")
+
+
+@app.get("/data/loader/info")
+async def get_loader_info():
+    """
+    Get information about the data loader capabilities.
+    
+    Returns:
+        Data loader configuration and capabilities
+    """
+    try:
+        loader = PSXDataLoader()
+        summary = loader.get_update_summary()
+        
+        return {
+            "kse100_symbols": PSXDataLoader.KSE_100_SYMBOLS,
+            "kse100_count": len(PSXDataLoader.KSE_100_SYMBOLS),
+            "supported_periods": ["1y", "2y", "5y", "10y", "max"],
+            "default_period": "5y",
+            "backup_directory": summary["session_backup_dir"],
+            "data_directory": summary["data_directory"],
+            "fail_safe_enabled": True,
+            "parallel_downloads": True,
+            "max_workers": 4,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise handle_api_error(e, "get_loader_info")
 
 
 @app.get("/health")

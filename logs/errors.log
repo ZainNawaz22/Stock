@@ -22,3 +22,8 @@ Traceback (most recent call last):
 TimeoutError: 23 (of 96) futures unfinished
 2025-08-01 01:53:02 | ERROR    | psx_ai_advisor.api_monitoring | wrapper             :173  | PID:19612 | Failed get_stocks after 50.615s - 500: Unexpected error in get_stocks: 23 (of 96) futures unfinished
 2025-08-01 03:57:29 | ERROR    | __main__                  | test_hyperparameter_optimization:76   | PID:22628 | Test failed: Model training failed for PTC: sklearn.ensemble._forest.RandomForestClassifier() got multiple values for keyword argument 'random_state' (Code: ModelTrainingError)
+2025-08-04 07:13:55 | ERROR    | yfinance                  | _fetch              :592  | PID:17828 | HTTP Error 404: 
+2025-08-04 07:13:56 | ERROR    | yfinance                  | history             :281  | PID:17828 | $WAFI.KA: possibly delisted; no price data found  (period=5y) (Yahoo error = "No data found, symbol may be delisted")
+2025-08-04 07:13:56 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:17828 | Failed to download data for WAFI
+2025-08-04 07:13:56 | ERROR    | yfinance                  | history             :281  | PID:17828 | $KASB.KA: possibly delisted; no price data found  (period=5y) (Yahoo error = "No data found, symbol may be delisted")
+2025-08-04 07:13:56 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:17828 | Failed to download data for KASB
