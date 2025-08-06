@@ -32,3 +32,54 @@ TimeoutError: 23 (of 96) futures unfinished
 2025-08-05 01:16:48 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:18052 | Failed to download data for KASB
 2025-08-05 01:16:49 | ERROR    | yfinance                  | history             :281  | PID:18052 | $WAFI.KA: possibly delisted; no price data found  (period=10y) (Yahoo error = "No data found, symbol may be delisted")
 2025-08-05 01:16:49 | ERROR    | psx_ai_advisor.data_loader | update_single_stock :280  | PID:18052 | Failed to download data for WAFI
+2025-08-07 03:21:56 | ERROR    | psx_ai_advisor.api_monitoring | log_error_with_context:260  | PID:10612 | Error: TimeoutError: 86 (of 103) futures unfinished (Context: operation=get_stocks)
+Traceback (most recent call last):
+  File "D:\webscrapping\stock\api_server.py", line 461, in get_stocks
+    for future in as_completed(future_to_symbol, timeout=timeout_seconds):
+                  ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\concurrent\futures\_base.py", line 239, in as_completed
+    raise TimeoutError(
+            '%d (of %d) futures unfinished' % (
+            len(pending), total_futures))
+TimeoutError: 86 (of 103) futures unfinished
+2025-08-07 03:21:56 | ERROR    | psx_ai_advisor.api_monitoring | wrapper             :173  | PID:10612 | Failed get_stocks after 204.723s - 500: Unexpected error in get_stocks: 86 (of 103) futures unfinished
+2025-08-07 03:21:56 | ERROR    | api_server                | process_single_prediction:340  | PID:10612 | Error generating prediction for ARPL_historical_data: Unable to handle missing values in latest data for ARPL_historical_data (Code: MLPredictorError)
+2025-08-07 03:21:57 | ERROR    | api_server                | process_single_prediction:340  | PID:10612 | Error generating prediction for AIRLINK_historical_data: Model training failed for AIRLINK_historical_data: A worker process managed by the executor was unexpectedly terminated. This could be caused by a segmentation fault while calling the function or by an excessive memory usage causing the Operating System to kill the worker.
+
+Detailed tracebacks of the workers should have been printed to stderr in the executor process if faulthandler was not disabled. (Code: ModelTrainingError)
+2025-08-07 03:28:45 | ERROR    | psx_ai_advisor.api_monitoring | log_error_with_context:260  | PID:12644 | Error: TimeoutError: 86 (of 103) futures unfinished (Context: operation=get_stocks)
+Traceback (most recent call last):
+  File "D:\webscrapping\stock\api_server.py", line 461, in get_stocks
+    for future in as_completed(future_to_symbol, timeout=timeout_seconds):
+                  ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\concurrent\futures\_base.py", line 239, in as_completed
+    raise TimeoutError(
+            '%d (of %d) futures unfinished' % (
+            len(pending), total_futures))
+TimeoutError: 86 (of 103) futures unfinished
+2025-08-07 03:28:45 | ERROR    | psx_ai_advisor.api_monitoring | wrapper             :173  | PID:12644 | Failed get_stocks after 385.970s - 500: Unexpected error in get_stocks: 86 (of 103) futures unfinished
+2025-08-07 03:28:45 | ERROR    | api_server                | process_single_prediction:340  | PID:12644 | Error generating prediction for ARPL_historical_data: Unable to handle missing values in latest data for ARPL_historical_data (Code: MLPredictorError)
+2025-08-07 03:30:19 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.011s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:19 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:20 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.016s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:20 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:21 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.005s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:21 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:22 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.006s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:22 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:23 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.005s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:23 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:23 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.021s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:23 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:24 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.005s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:24 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:25 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.007s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:25 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:26 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.005s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:26 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:27 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.007s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:27 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:28 | ERROR    | psx_ai_advisor.api_monitoring | dispatch            :104  | PID:12644 | API Exception: GET /api/stocks failed after 0.006s - Out of range float values are not JSON compliant: nan
+2025-08-07 03:30:28 | ERROR    | api_server                | internal_error_handler:1218 | PID:12644 | Internal server error: Out of range float values are not JSON compliant: nan
+2025-08-07 03:37:43 | ERROR    | api_server                | process_single_prediction:368  | PID:23296 | Error generating prediction for ARPL_historical_data: Unable to handle missing values in latest data for ARPL_historical_data (Code: MLPredictorError)
+2025-08-07 03:41:39 | ERROR    | api_server                | process_single_prediction:368  | PID:23296 | Error generating prediction for ARPL_historical_data: Unable to handle missing values in latest data for ARPL_historical_data (Code: MLPredictorError)

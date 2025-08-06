@@ -38,7 +38,7 @@ from psx_ai_advisor.exceptions import (
 from psx_ai_advisor.api_models import (
     StocksListResponse, StockDataResponse, PredictionsResponse, SystemStatus,
     StockSummary, StockDataPoint, PredictionResult, APIError,
-    serialize_dataframe_simple, create_error_response
+    serialize_dataframe_simple, create_error_response, clean_nan_values
 )
 from psx_ai_advisor.api_monitoring import (
     APIMonitoringMiddleware, log_api_performance, log_data_operation,
@@ -49,13 +49,22 @@ from psx_ai_advisor.api_monitoring import (
 # Initialize logging
 logger = get_logger(__name__)
 
-# Initialize FastAPI app
+# Custom JSON encoder that handles NaN values
+class NanSafeJSONResponse(JSONResponse):
+    """Custom JSONResponse that converts NaN values to null for JSON serialization."""
+    def render(self, content: Any) -> bytes:
+        # Clean the content before JSON encoding
+        cleaned_content = clean_nan_values(content)
+        return super().render(cleaned_content)
+
+# Initialize FastAPI app with custom response class
 app = FastAPI(
     title="PSX AI Advisor API",
     description="REST API for Pakistan Stock Exchange AI-powered stock analysis and predictions",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    default_response_class=NanSafeJSONResponse
 )
 
 # Configure CORS for frontend access
@@ -211,10 +220,23 @@ def process_symbol_summary(symbol: str, include_prediction: bool = True) -> Dict
                     company_name = symbol
                 
                 # Calculate change and change percent
-                current_price = float(latest_record.get('Close', 0))
-                previous_close = float(latest_record.get('Previous_Close', current_price))
+                current_price_raw = latest_record.get('Close', 0)
+                previous_close_raw = latest_record.get('Previous_Close', current_price_raw)
+                volume_raw = latest_record.get('Volume', 0)
+                
+                # Clean NaN values and convert to appropriate types
+                current_price = float(current_price_raw) if pd.notna(current_price_raw) else 0.0
+                previous_close = float(previous_close_raw) if pd.notna(previous_close_raw) else current_price
+                volume = int(volume_raw) if pd.notna(volume_raw) else 0
+                
                 change = current_price - previous_close
                 change_percent = (change / previous_close * 100) if previous_close != 0 else 0.0
+                
+                # Ensure no NaN values in the final calculations
+                if np.isnan(change):
+                    change = 0.0
+                if np.isnan(change_percent):
+                    change_percent = 0.0
                 
                 stock_info = {
                     "symbol": symbol,
@@ -222,7 +244,7 @@ def process_symbol_summary(symbol: str, include_prediction: bool = True) -> Dict
                     "current_price": current_price,
                     "change": change,
                     "change_percent": change_percent,
-                    "volume": int(latest_record.get('Volume', 0)),
+                    "volume": volume,
                     "last_updated": latest_record.get('Date', datetime.now()).strftime('%Y-%m-%dT%H:%M:%S') if hasattr(latest_record.get('Date'), 'strftime') else str(latest_record.get('Date', datetime.now().isoformat())),
                     "has_data": True,
                     "prediction": None
@@ -292,13 +314,14 @@ def process_symbol_summary(symbol: str, include_prediction: bool = True) -> Dict
                 "prediction": None
             }
         
-        # Cache the result
+        # Cache the result and clean NaN values before returning
+        stock_info = clean_nan_values(stock_info)
         set_cached_data(_cached_stock_summaries, cache_key, stock_info)
         return stock_info
         
     except Exception as e:
         logger.warning(f"Error processing summary for {symbol}: {e}")
-        return {
+        error_info = {
             "symbol": symbol,
             "name": symbol,
             "current_price": 0.0,
@@ -310,6 +333,7 @@ def process_symbol_summary(symbol: str, include_prediction: bool = True) -> Dict
             "error": f"Processing error: {str(e)}",
             "prediction": None
         }
+        return clean_nan_values(error_info)
 
 
 def process_single_prediction(symbol: str) -> Dict[str, Any]:
@@ -318,33 +342,38 @@ def process_single_prediction(symbol: str) -> Dict[str, Any]:
         # Check cache first
         cached_prediction = get_cached_data(_cached_predictions, symbol, 30)
         if cached_prediction:
-            return cached_prediction
+            return clean_nan_values(cached_prediction)
         
         # Generate new prediction
         log_ml_operation("predict", symbol)
         prediction = ml_predictor.predict_movement(symbol)
         
+        # Clean NaN values from prediction
+        cleaned_prediction = clean_nan_values(prediction)
+        
         # Cache the result
-        set_cached_data(_cached_predictions, symbol, prediction)
-        return prediction
+        set_cached_data(_cached_predictions, symbol, cleaned_prediction)
+        return cleaned_prediction
         
     except InsufficientDataError as e:
-        return {
+        error_prediction = {
             "symbol": symbol,
             "error": "insufficient_data",
             "message": str(e),
             "prediction": None,
             "confidence": None
         }
+        return clean_nan_values(error_prediction)
     except Exception as e:
         logger.error(f"Error generating prediction for {symbol}: {e}")
-        return {
+        error_prediction = {
             "symbol": symbol,
             "error": "prediction_failed",
             "message": str(e),
             "prediction": None,
             "confidence": None
         }
+        return clean_nan_values(error_prediction)
 
 
 # Use the serialize_dataframe_simple function from api_models instead

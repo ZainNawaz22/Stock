@@ -320,7 +320,7 @@ class TechnicalAnalyzer:
         
         try:
             # Calculate daily returns
-            returns = data.pct_change()
+            returns = data.pct_change(fill_method=None)
             
             # Calculate rolling standard deviation of returns
             volatility = returns.rolling(window=period, min_periods=period).std() * np.sqrt(252)  # Annualized

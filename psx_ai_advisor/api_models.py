@@ -347,6 +347,45 @@ def serialize_dataframe_simple(df: pd.DataFrame) -> List[Dict[str, Any]]:
     return records
 
 
+def clean_nan_values(data: Any) -> Any:
+    """
+    Recursively clean NaN values from any data structure.
+    
+    Args:
+        data: Any data structure that may contain NaN values
+        
+    Returns:
+        Any: Cleaned data structure with NaN values replaced by None
+    """
+    if isinstance(data, dict):
+        cleaned = {}
+        for key, value in data.items():
+            cleaned[key] = clean_nan_values(value)
+        return cleaned
+    elif isinstance(data, list):
+        return [clean_nan_values(item) for item in data]
+    elif pd.isna(data):
+        return None
+    elif isinstance(data, pd.Timestamp):
+        return data.isoformat()
+    elif isinstance(data, np.integer):
+        return int(data)
+    elif isinstance(data, np.floating):
+        if np.isnan(data):
+            return None
+        return float(data)
+    elif hasattr(data, 'item'):  # Other numpy types
+        try:
+            value = data.item()
+            if isinstance(value, float) and np.isnan(value):
+                return None
+            return value
+        except (ValueError, TypeError):
+            return str(data)
+    else:
+        return data
+
+
 def create_error_response(message: str, error_code: str = None) -> APIError:
     """
     Create a standardized error response.
