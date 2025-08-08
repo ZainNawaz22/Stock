@@ -14,7 +14,7 @@ from typing import Dict, Any, Tuple, Optional, List
 from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, TimeSeriesSplit, RandomizedSearchCV
-from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report, f1_score
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import randint
 import warnings
@@ -74,6 +74,7 @@ class MLPredictor:
         self.technical_analyzer = TechnicalAnalyzer()
         self.models = {}
         self.scalers = {}
+        self.thresholds = {}
         
         # Ensure model directories exist
         self._ensure_model_directories()
@@ -86,6 +87,18 @@ class MLPredictor:
         ]
         
         logger.info(f"MLPredictor initialized with {model_type} model")
+        self.threshold_config = self.ml_config.get('threshold_tuning', {})
+        self.threshold_enabled = self.threshold_config.get('enabled', True)
+        self.threshold_metric = self.threshold_config.get('metric', 'f1')
+        self.threshold_min = float(self.threshold_config.get('min_threshold', 0.3))
+        self.threshold_max = float(self.threshold_config.get('max_threshold', 0.7))
+        self.threshold_step = float(self.threshold_config.get('step', 0.05))
+        self.utility_params = self.threshold_config.get('utility', {
+            'tp_reward': 1.0,
+            'tn_reward': 0.0,
+            'fp_cost': 1.0,
+            'fn_cost': 1.0
+        })
     
     def _ensure_model_directories(self) -> None:
         """Create model and scaler directories if they don't exist"""
@@ -115,6 +128,65 @@ class MLPredictor:
         normalized = self._normalize_symbol(symbol)
         clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
         return os.path.join(self.scalers_dir, f"{clean_symbol}_scaler.pkl")
+
+    def _get_threshold_path(self, symbol: str) -> str:
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
+        return os.path.join(self.models_dir, f"{clean_symbol}_threshold.json")
+
+    def _tune_threshold(self, y_true: np.ndarray, y_proba_up: np.ndarray) -> Tuple[float, float]:
+        thresholds = np.arange(self.threshold_min, self.threshold_max + 1e-9, self.threshold_step)
+        best_threshold = 0.5
+        best_score = -np.inf
+        for t in thresholds:
+            y_pred = (y_proba_up >= t).astype(int)
+            if self.threshold_metric == 'utility':
+                tp = int(np.sum((y_true == 1) & (y_pred == 1)))
+                tn = int(np.sum((y_true == 0) & (y_pred == 0)))
+                fp = int(np.sum((y_true == 0) & (y_pred == 1)))
+                fn = int(np.sum((y_true == 1) & (y_pred == 0)))
+                u = self.utility_params
+                score = (
+                    tp * float(u.get('tp_reward', 1.0))
+                    + tn * float(u.get('tn_reward', 0.0))
+                    - fp * float(u.get('fp_cost', 1.0))
+                    - fn * float(u.get('fn_cost', 1.0))
+                )
+            else:
+                score = f1_score(y_true, y_pred, pos_label=1, zero_division=0)
+            if score > best_score:
+                best_score = float(score)
+                best_threshold = float(t)
+        return best_threshold, best_score
+
+    def save_threshold(self, symbol: str, threshold: float) -> bool:
+        try:
+            path = self._get_threshold_path(symbol)
+            with open(path, 'w', encoding='utf-8') as f:
+                import json
+                json.dump({
+                    'symbol': symbol,
+                    'threshold': float(threshold),
+                    'metric': self.threshold_metric,
+                    'updated_at': datetime.now().isoformat()
+                }, f)
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to save threshold for {symbol}: {e}")
+            return False
+
+    def load_threshold(self, symbol: str) -> Optional[float]:
+        try:
+            path = self._get_threshold_path(symbol)
+            if not os.path.exists(path):
+                return None
+            with open(path, 'r', encoding='utf-8') as f:
+                import json
+                data = json.load(f)
+                return float(data.get('threshold', 0.5))
+        except Exception as e:
+            logger.warning(f"Failed to load threshold for {symbol}: {e}")
+            return None
     
     def _optimize_hyperparameters(self, X: np.ndarray, y: np.ndarray) -> RandomForestClassifier:
         """
@@ -338,6 +410,14 @@ class MLPredictor:
             accuracy = accuracy_score(y_test, y_pred)
             precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
             recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+
+            tuned_threshold = None
+            tuned_score = None
+            if self.threshold_enabled:
+                proba_up = y_pred_proba[:, 1]
+                tuned_threshold, tuned_score = self._tune_threshold(y_test, proba_up)
+                self.thresholds[symbol] = tuned_threshold
+                self.save_threshold(symbol, tuned_threshold)
             
             # Perform time-series cross-validation for more robust evaluation
             cv_scores = self._perform_time_series_cv(X, y, tscv, model.get_params() if optimize_params else None)
@@ -383,7 +463,10 @@ class MLPredictor:
                     'n_splits': self.n_splits,
                     'max_train_size': self.max_train_size,
                     'data_sorted_by_date': 'Date' in stock_data.columns
-                }
+                },
+                'decision_threshold': float(tuned_threshold) if tuned_threshold is not None else 0.5,
+                'threshold_metric': self.threshold_metric if self.threshold_enabled else None,
+                'threshold_score': float(tuned_score) if tuned_score is not None else None
             }
             
             logger.info(f"Model training completed for {symbol}")
@@ -469,9 +552,17 @@ class MLPredictor:
             
             # Make prediction
             prediction_proba = model.predict_proba(X_latest)[0]
-            prediction_class = model.predict(X_latest)[0]
+            active_threshold = self.thresholds.get(symbol)
+            if active_threshold is None:
+                loaded_thr = self.load_threshold(symbol)
+                if loaded_thr is not None:
+                    self.thresholds[symbol] = loaded_thr
+                    active_threshold = loaded_thr
+            if active_threshold is None:
+                active_threshold = 0.5
+            up_proba = float(prediction_proba[1])
+            prediction_class = 1 if up_proba >= active_threshold else 0
             
-            # Determine prediction direction and confidence
             prediction_direction = "UP" if prediction_class == 1 else "DOWN"
             confidence = float(max(prediction_proba))
             
@@ -482,7 +573,6 @@ class MLPredictor:
             # Calculate model accuracy from recent predictions (if available)
             model_accuracy = self._calculate_recent_accuracy(symbol, stock_data)
             
-            # Prepare prediction result
             prediction_result = {
                 'symbol': symbol,
                 'prediction': prediction_direction,
@@ -491,6 +581,7 @@ class MLPredictor:
                     'DOWN': float(prediction_proba[0]),
                     'UP': float(prediction_proba[1])
                 },
+                'decision_threshold': float(active_threshold),
                 'current_price': current_price,
                 'prediction_date': datetime.now().isoformat(),
                 'data_date': current_date.isoformat() if hasattr(current_date, 'isoformat') else str(current_date),
@@ -830,6 +921,53 @@ class MLPredictor:
         except Exception as e:
             logger.error(f"Error getting available models: {e}")
             return []
+
+    def tune_threshold_for_symbol(self, symbol: str) -> Dict[str, Any]:
+        try:
+            symbol = self._normalize_symbol(symbol)
+            if symbol not in self.models:
+                model_path = self._get_model_path(symbol)
+                scaler_path = self._get_scaler_path(symbol)
+                if not (os.path.exists(model_path) and os.path.exists(scaler_path)):
+                    raise MLPredictorError(f"No trained model found for {symbol}")
+                self.models[symbol] = self.load_model(symbol)
+                self.scalers[symbol] = self.load_scaler(symbol)
+
+            stock_data = self.data_storage.load_stock_data(symbol)
+            if stock_data.empty:
+                raise MLPredictorError(f"No data available for symbol: {symbol}")
+
+            X, y = self.prepare_features(stock_data)
+            if len(X) < self.min_training_samples:
+                raise InsufficientDataError(
+                    f"Insufficient data for threshold tuning. Need {self.min_training_samples} samples, got {len(X)}"
+                )
+
+            tscv = TimeSeriesSplit(n_splits=self.n_splits, max_train_size=self.max_train_size)
+            train_idx, test_idx = list(tscv.split(X))[-1]
+            X_test = X[test_idx]
+            y_test = y[test_idx]
+
+            scaler = self.scalers[symbol]
+            model = self.models[symbol]
+            X_test_scaled = scaler.transform(X_test)
+            y_pred_proba = model.predict_proba(X_test_scaled)
+
+            tuned_threshold, tuned_score = self._tune_threshold(y_test, y_pred_proba[:, 1])
+            self.thresholds[symbol] = tuned_threshold
+            self.save_threshold(symbol, tuned_threshold)
+
+            return {
+                'symbol': symbol,
+                'decision_threshold': float(tuned_threshold),
+                'threshold_metric': self.threshold_metric,
+                'threshold_score': float(tuned_score),
+                'test_samples': int(len(y_test))
+            }
+        except Exception as e:
+            if isinstance(e, (MLPredictorError, InsufficientDataError)):
+                raise
+            raise MLPredictorError(f"Threshold tuning failed for {symbol}: {e}")
     
     def evaluate_model(self, symbol: str) -> Dict[str, Any]:
         """
@@ -878,11 +1016,26 @@ class MLPredictor:
             # Make predictions
             y_pred = model.predict(X_scaled)
             y_pred_proba = model.predict_proba(X_scaled)
+
+            active_threshold = self.thresholds.get(symbol)
+            if active_threshold is None:
+                loaded_thr = self.load_threshold(symbol)
+                if loaded_thr is not None:
+                    self.thresholds[symbol] = loaded_thr
+                    active_threshold = loaded_thr
+            if active_threshold is None:
+                active_threshold = 0.5
+            y_pred_thresh = (y_pred_proba[:, 1] >= float(active_threshold)).astype(int)
             
             # Calculate comprehensive metrics
             accuracy = accuracy_score(y, y_pred)
             precision = precision_score(y, y_pred, average='weighted', zero_division=0)
             recall = recall_score(y, y_pred, average='weighted', zero_division=0)
+            f1_default = f1_score(y, y_pred, average='weighted', zero_division=0)
+            accuracy_thr = accuracy_score(y, y_pred_thresh)
+            precision_thr = precision_score(y, y_pred_thresh, average='weighted', zero_division=0)
+            recall_thr = recall_score(y, y_pred_thresh, average='weighted', zero_division=0)
+            f1_thr = f1_score(y, y_pred_thresh, average='weighted', zero_division=0)
             
             # Calculate class-specific metrics
             precision_up = precision_score(y, y_pred, pos_label=1, zero_division=0)
@@ -917,7 +1070,15 @@ class MLPredictor:
                 'overall_metrics': {
                     'accuracy': float(accuracy),
                     'precision': float(precision),
-                    'recall': float(recall)
+                    'recall': float(recall),
+                    'f1': float(f1_default)
+                },
+                'threshold_metrics': {
+                    'threshold': float(active_threshold),
+                    'accuracy': float(accuracy_thr),
+                    'precision': float(precision_thr),
+                    'recall': float(recall_thr),
+                    'f1': float(f1_thr)
                 },
                 'class_metrics': {
                     'UP': {

@@ -186,7 +186,20 @@ class ConfigLoader:
                 "random_state": 42,
                 "n_estimators": 100,
                 "n_splits": 5,
-                "max_train_size": None
+                "max_train_size": None,
+                "threshold_tuning": {
+                    "enabled": True,
+                    "metric": "f1",
+                    "min_threshold": 0.3,
+                    "max_threshold": 0.7,
+                    "step": 0.05,
+                    "utility": {
+                        "tp_reward": 1.0,
+                        "tn_reward": 0.0,
+                        "fp_cost": 1.0,
+                        "fn_cost": 1.0
+                    }
+                }
             },
             "storage": {
                 "data_directory": "data",
