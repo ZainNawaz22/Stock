@@ -96,15 +96,25 @@ class MLPredictor:
             logger.debug(f"Ensured model directories exist: {self.models_dir}, {self.scalers_dir}")
         except OSError as e:
             raise MLPredictorError(f"Failed to create model directories: {e}")
+
+    def _normalize_symbol(self, symbol: str) -> str:
+        s = str(symbol).strip().upper()
+        if s.endswith('.KS') or s.endswith('.KA'):
+            s = s.split('.')[0]
+        if not s.endswith('_HISTORICAL_DATA'):
+            s = f"{s}_HISTORICAL_DATA"
+        return s
     
     def _get_model_path(self, symbol: str) -> str:
         """Get the file path for a model"""
-        clean_symbol = "".join(c for c in symbol if c.isalnum() or c in ('-', '_')).upper()
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
         return os.path.join(self.models_dir, f"{clean_symbol}_model.pkl")
     
     def _get_scaler_path(self, symbol: str) -> str:
         """Get the file path for a scaler"""
-        clean_symbol = "".join(c for c in symbol if c.isalnum() or c in ('-', '_')).upper()
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
         return os.path.join(self.scalers_dir, f"{clean_symbol}_scaler.pkl")
     
     def _optimize_hyperparameters(self, X: np.ndarray, y: np.ndarray) -> RandomForestClassifier:
@@ -259,6 +269,7 @@ class MLPredictor:
             ModelTrainingError: If model training fails
         """
         try:
+            symbol = self._normalize_symbol(symbol)
             logger.info(f"Starting model training for {symbol}")
             
             # Load stock data
@@ -417,6 +428,7 @@ class MLPredictor:
             MLPredictorError: If prediction fails
         """
         try:
+            symbol = self._normalize_symbol(symbol)
             logger.info(f"Generating prediction for {symbol}")
             
             # Load or train model if not available

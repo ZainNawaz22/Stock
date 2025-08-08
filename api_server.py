@@ -1025,7 +1025,7 @@ async def get_system_status() -> SystemStatus:
             import os
             data_dir = "data"
             if os.path.exists(data_dir):
-                csv_files = [f for f in os.listdir(data_dir) if f.endswith('_historical_data.csv')]
+                csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
                 total_symbols = len(csv_files)
             else:
                 total_symbols = 0
@@ -1479,7 +1479,7 @@ async def update_existing_data(
         data_dir = "data"
         existing_count = 0
         if os.path.exists(data_dir):
-            existing_count = len([f for f in os.listdir(data_dir) if f.endswith('_historical_data.csv')])
+            existing_count = len([f for f in os.listdir(data_dir) if f.endswith('.csv')])
         
         with data_loading_lock:
             data_loading_tasks[task_id] = {

@@ -55,6 +55,20 @@ class DataStorage:
             self.logger.debug(f"Ensured directories exist: {self.data_dir}, {self.backup_dir}")
         except OSError as e:
             raise DataStorageError(f"Failed to create directories: {e}")
+
+    def _normalize_symbol(self, symbol: str) -> str:
+        """Normalize symbol to use historical data naming convention.
+        Ensures uppercase and appends _HISTORICAL_DATA suffix if missing.
+        Also strips common market suffixes like .KS/.KA from inputs.
+        """
+        if symbol is None:
+            return ""
+        s = str(symbol).strip().upper()
+        if s.endswith('.KS') or s.endswith('.KA'):
+            s = s.split('.')[0]
+        if not s.endswith('_HISTORICAL_DATA'):
+            s = f"{s}_HISTORICAL_DATA"
+        return s
     
     def _get_csv_path(self, symbol: str) -> str:
         """
@@ -66,9 +80,25 @@ class DataStorage:
         Returns:
             str: Full path to CSV file
         """
-        # Clean symbol for filename (remove special characters)
-        clean_symbol = "".join(c for c in symbol if c.isalnum() or c in ('-', '_')).upper()
+        # Normalize to historical data naming and clean for filename
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
         return os.path.join(self.data_dir, f"{clean_symbol}.csv")
+
+    def _get_unsuffixed_csv_path(self, symbol: str) -> str:
+        """Get legacy CSV path without the historical suffix for backward compatibility."""
+        if symbol is None:
+            base = ""
+        else:
+            s = str(symbol).strip().upper()
+            if s.endswith('_HISTORICAL_DATA'):
+                base = s.replace('_HISTORICAL_DATA', '')
+            else:
+                base = s
+            if base.endswith('.KS') or base.endswith('.KA'):
+                base = base.split('.')[0]
+        clean_base = "".join(c for c in base if c.isalnum() or c in ('-', '_')).upper()
+        return os.path.join(self.data_dir, f"{clean_base}.csv")
     
     def _get_backup_path(self, symbol: str, timestamp: Optional[str] = None) -> str:
         """
@@ -84,7 +114,8 @@ class DataStorage:
         if timestamp is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
-        clean_symbol = "".join(c for c in symbol if c.isalnum() or c in ('-', '_')).upper()
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
         return os.path.join(self.backup_dir, f"{clean_symbol}_{timestamp}.csv")
     
     def _validate_data_format(self, data: pd.DataFrame) -> bool:
@@ -192,20 +223,27 @@ class DataStorage:
                 data = data.copy()
                 data['Date'] = pd.to_datetime(data['Date'])
             
-            # Ensure Symbol is string type
+            # Ensure Symbol column is present and normalized
+            normalized_symbol = self._normalize_symbol(symbol)
             if 'Symbol' in data.columns:
-                data['Symbol'] = data['Symbol'].astype(str)
+                data['Symbol'] = str(normalized_symbol)
+            else:
+                data = data.copy()
+                data['Symbol'] = str(normalized_symbol)
+            data['Symbol'] = data['Symbol'].astype(str)
             
             # Validate data format
             self._validate_data_format(data)
             
-            # Get file path
+            # Get file paths
             csv_path = self._get_csv_path(symbol)
+            legacy_csv_path = self._get_unsuffixed_csv_path(symbol)
             
             # Load existing data if file exists
-            if os.path.exists(csv_path):
+            if os.path.exists(csv_path) or os.path.exists(legacy_csv_path):
                 try:
-                    existing_data = pd.read_csv(csv_path, parse_dates=['Date'])
+                    read_path = csv_path if os.path.exists(csv_path) else legacy_csv_path
+                    existing_data = pd.read_csv(read_path, parse_dates=['Date'])
                     
                     # Combine existing and new data
                     combined_data = pd.concat([existing_data, data], ignore_index=True)
@@ -223,7 +261,10 @@ class DataStorage:
                     # Create backup of corrupted file
                     backup_path = self._get_backup_path(symbol, f"corrupted_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
                     try:
-                        os.rename(csv_path, backup_path)
+                        if os.path.exists(csv_path):
+                            os.rename(csv_path, backup_path)
+                        elif os.path.exists(legacy_csv_path):
+                            os.rename(legacy_csv_path, backup_path)
                         self.logger.info(f"Backed up corrupted file to: {backup_path}")
                     except Exception:
                         pass
@@ -316,11 +357,15 @@ class DataStorage:
                 return symbols
             
             # Find all CSV files in data directory
-            for filename in os.listdir(self.data_dir):
-                if filename.endswith('.csv'):
-                    # Extract symbol from filename (remove .csv extension)
-                    symbol = filename[:-4]
-                    symbols.append(symbol)
+            all_files = [f for f in os.listdir(self.data_dir) if f.endswith('.csv')]
+
+            # Prefer only files that follow the _HISTORICAL_DATA convention
+            hist_files = [f for f in all_files if f[:-4].upper().endswith('_HISTORICAL_DATA')]
+            files_to_use = hist_files if hist_files else all_files
+
+            for filename in files_to_use:
+                symbol = filename[:-4]
+                symbols.append(symbol.upper())
             
             symbols.sort()
             self.logger.debug(f"Found {len(symbols)} symbols with data files")

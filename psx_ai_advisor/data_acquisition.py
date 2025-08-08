@@ -455,15 +455,13 @@ class PSXDataAcquisition:
                     self.logger.warning(f"Removed {validation_removed} rows failing business logic validation")
                     op_logger.log_progress("Business logic validation completed", removed_invalid_rows=validation_removed)
                 
-                # Extract symbol from filename (e.g., ABL_historical_data.csv -> ABL)
                 filename = os.path.basename(csv_path)
-                if '_historical_data.csv' in filename:
-                    symbol = filename.replace('_historical_data.csv', '')
+                if filename.lower().endswith('.csv'):
+                    symbol = filename[:-4].upper()
                 else:
-                    # Fallback: try to extract symbol from filename
                     import re
                     symbol_match = re.search(r'([A-Z]+)', filename)
-                    symbol = symbol_match.group(1) if symbol_match else 'UNKNOWN'
+                    symbol = symbol_match.group(1).upper() if symbol_match else 'UNKNOWN'
                 
                 op_logger.add_context(symbol=symbol)
                 
