@@ -57,7 +57,6 @@ class MLPredictor:
         # ML parameters
         self.model_type = model_type
         self.min_training_samples = self.ml_config.get('min_training_samples', 200)
-        self.test_size = self.ml_config.get('test_size', 0.2)
         self.random_state = self.ml_config.get('random_state', 42)
         self.n_estimators = self.ml_config.get('n_estimators', 100)
         
@@ -139,8 +138,8 @@ class MLPredictor:
             'max_features': ['sqrt', 'log2', 0.5]
         }
         
-        # Use TimeSeriesSplit for cross-validation (never regular KFold)
-        tscv = TimeSeriesSplit(n_splits=3)
+        # Use configured TimeSeriesSplit
+        tscv = TimeSeriesSplit(n_splits=self.n_splits, max_train_size=self.max_train_size)
         
         # Create base Random Forest classifier
         rf = RandomForestClassifier(
@@ -312,20 +311,10 @@ class MLPredictor:
             # Train Random Forest model with or without hyperparameter optimization
             if optimize_params:
                 logger.info("Training with hyperparameter optimization enabled")
-                # Use the full scaled dataset for hyperparameter optimization
-                X_full_scaled = scaler.fit_transform(X)
-                model = self._optimize_hyperparameters(X_full_scaled, y)
-                
-                # Refit the scaler and model on the training set for consistency
-                X_train_scaled = scaler.fit_transform(X_train)
-                X_test_scaled = scaler.transform(X_test)
-                
-                # Create a new model with the optimized parameters and fit on training data
+                model = self._optimize_hyperparameters(X, y)
                 optimized_params = model.get_params()
-                # Ensure consistent random_state and n_jobs
                 optimized_params['random_state'] = self.random_state
                 optimized_params['n_jobs'] = -1
-                
                 optimized_model = RandomForestClassifier(**optimized_params)
                 optimized_model.fit(X_train_scaled, y_train)
                 model = optimized_model
@@ -632,14 +621,14 @@ class MLPredictor:
             if len(stock_data) < days + 1:
                 return None
             
-            # Get recent data
-            recent_data = stock_data.tail(days + 1).copy()
+            X_full, y_full = self.prepare_features(stock_data)
             
-            # Prepare features and targets for recent data
-            X_recent, y_recent = self.prepare_features(recent_data)
-            
-            if len(X_recent) < 10:  # Need at least 10 samples for meaningful accuracy
+            if len(X_full) < 10:
                 return None
+            
+            n = min(days, len(X_full))
+            X_recent = X_full[-n:]
+            y_recent = y_full[-n:]
             
             # Scale features
             scaler = self.scalers[symbol]
@@ -972,127 +961,7 @@ class MLPredictor:
             else:
                 raise MLPredictorError(f"Model evaluation failed for {symbol}: {e}")
 
-    def format_prediction_output(self, prediction_result: Dict[str, Any]) -> str:
-        """
-        Format prediction result as human-readable suggestion.
-        
-        Args:
-            prediction_result (Dict[str, Any]): Prediction result from predict_movement()
-            
-        Returns:
-            str: Human-readable prediction suggestion
-        """
-        try:
-            symbol = prediction_result['symbol']
-            prediction = prediction_result['prediction']
-            confidence = prediction_result['confidence']
-            current_price = prediction_result['current_price']
-            model_accuracy = prediction_result.get('model_accuracy')
-            prediction_date = prediction_result['prediction_date']
-            
-            # Parse prediction timestamp for display
-            try:
-                pred_datetime = datetime.fromisoformat(prediction_date.replace('Z', '+00:00'))
-                timestamp_str = pred_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            except:
-                timestamp_str = prediction_date
-            
-            # Create confidence level description
-            if confidence >= 0.8:
-                confidence_level = "High"
-            elif confidence >= 0.6:
-                confidence_level = "Medium"
-            else:
-                confidence_level = "Low"
-            
-            # Create accuracy description
-            accuracy_str = ""
-            if model_accuracy is not None:
-                accuracy_str = f" (Model Accuracy: {model_accuracy:.1%})"
-            
-            # Format the main prediction message
-            prediction_msg = f"Prediction for {symbol}: {prediction}"
-            
-            # Add detailed information
-            details = (
-                f"  Current Price: PKR {current_price:.2f}\n"
-                f"  Confidence: {confidence:.1%} ({confidence_level})\n"
-                f"  Prediction Time: {timestamp_str}{accuracy_str}"
-            )
-            
-            return f"{prediction_msg}\n{details}"
-            
-        except Exception as e:
-            logger.error(f"Error formatting prediction output: {e}")
-            return f"Prediction for {prediction_result.get('symbol', 'Unknown')}: {prediction_result.get('prediction', 'Unknown')}"
     
-    def format_multiple_predictions(self, predictions: List[Dict[str, Any]], 
-                                  sort_by: str = 'confidence') -> str:
-        """
-        Format multiple prediction results as human-readable output.
-        
-        Args:
-            predictions (List[Dict[str, Any]]): List of prediction results
-            sort_by (str): Sort criteria ('confidence', 'symbol', 'accuracy')
-            
-        Returns:
-            str: Formatted output for multiple predictions
-        """
-        try:
-            if not predictions:
-                return "No predictions available."
-            
-            # Sort predictions based on criteria
-            if sort_by == 'confidence':
-                predictions = sorted(predictions, key=lambda x: x.get('confidence', 0), reverse=True)
-            elif sort_by == 'symbol':
-                predictions = sorted(predictions, key=lambda x: x.get('symbol', ''))
-            elif sort_by == 'accuracy':
-                predictions = sorted(predictions, key=lambda x: x.get('model_accuracy', 0) or 0, reverse=True)
-            
-            # Create header
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            header = f"PSX AI Advisor - Stock Predictions ({current_time})"
-            separator = "=" * len(header)
-            
-            # Format each prediction
-            formatted_predictions = []
-            up_count = 0
-            down_count = 0
-            
-            for pred in predictions:
-                formatted_pred = self.format_prediction_output(pred)
-                formatted_predictions.append(formatted_pred)
-                
-                # Count predictions
-                if pred.get('prediction') == 'UP':
-                    up_count += 1
-                else:
-                    down_count += 1
-            
-            # Create summary
-            total_predictions = len(predictions)
-            summary = (
-                f"\nSummary: {total_predictions} predictions generated\n"
-                f"  UP predictions: {up_count} ({up_count/total_predictions:.1%})\n"
-                f"  DOWN predictions: {down_count} ({down_count/total_predictions:.1%})\n"
-            )
-            
-            # Combine all parts
-            output_parts = [
-                separator,
-                header,
-                separator,
-                "\n" + "\n\n".join(formatted_predictions),
-                summary,
-                separator
-            ]
-            
-            return "\n".join(output_parts)
-            
-        except Exception as e:
-            logger.error(f"Error formatting multiple predictions: {e}")
-            return f"Error formatting predictions: {e}"
     
     def generate_prediction_summary(self, symbol: str) -> Dict[str, Any]:
         """

@@ -63,7 +63,7 @@ class PSXDataLoader:
         
         logger.info(f"PSXDataLoader initialized with data_dir: {self.data_dir}")
     
-    def download_stock_data(self, symbol: str, period: str = '2y', interval: str = '1d') -> Optional[pd.DataFrame]:
+    def download_stock_data(self, symbol: str, period: str = '10y', interval: str = '1d') -> Optional[pd.DataFrame]:
         """
         Download stock data for a specific symbol.
         
@@ -128,11 +128,11 @@ class PSXDataLoader:
             s = f"{s}_HISTORICAL_DATA"
         return self.data_dir / f"{s}.csv"
 
-    def download_single_stock(self, symbol: str, period: str = '2y') -> Optional[pd.DataFrame]:
+    def download_single_stock(self, symbol: str, period: str = '10y') -> Optional[pd.DataFrame]:
         yahoo_symbol = self.get_yahoo_symbol(symbol)
         return self.download_stock_data(yahoo_symbol, period)
 
-    def update_single_stock(self, symbol: str, period: str = '2y', merge_with_existing: bool = False) -> bool:
+    def update_single_stock(self, symbol: str, period: str = '10y', merge_with_existing: bool = False) -> bool:
         try:
             base_symbol = symbol.split('.')[0].upper()
             data = self.download_single_stock(base_symbol, period)
@@ -166,7 +166,7 @@ class PSXDataLoader:
                 pass
             return False
 
-    def update_multiple_stocks(self, symbols: List[str], period: str = '2y', max_workers: int = 4, merge_with_existing: bool = False) -> Dict[str, bool]:
+    def update_multiple_stocks(self, symbols: List[str], period: str = '10y', max_workers: int = 4, merge_with_existing: bool = False) -> Dict[str, bool]:
         from concurrent.futures import ThreadPoolExecutor, as_completed
         results: Dict[str, bool] = {}
         cleaned_symbols = [s.strip().upper() for s in symbols if s and s.strip()]
@@ -184,10 +184,10 @@ class PSXDataLoader:
                 results[s] = ok
         return results
 
-    def update_kse100_stocks(self, period: str = '5y', max_workers: int = 4, merge_with_existing: bool = False) -> Dict[str, bool]:
+    def update_kse100_stocks(self, period: str = '10y', max_workers: int = 4, merge_with_existing: bool = False) -> Dict[str, bool]:
         return self.update_multiple_stocks(self.get_kse100_symbols(), period, max_workers, merge_with_existing)
 
-    def update_existing_stocks(self, period: str = '2y', max_workers: int = 4, merge_with_existing: bool = False) -> Dict[str, bool]:
+    def update_existing_stocks(self, period: str = '10y', max_workers: int = 4, merge_with_existing: bool = False) -> Dict[str, bool]:
         existing = self.get_available_symbols()
         return self.update_multiple_stocks(existing, period, max_workers, merge_with_existing)
 
@@ -198,7 +198,7 @@ class PSXDataLoader:
             "kse100_symbols_count": len(self.KSE_100_SYMBOLS)
         }
 
-    def download_kse100_data(self, period: str = '2y', max_workers: int = 4) -> Dict[str, Any]:
+    def download_kse100_data(self, period: str = '10y', max_workers: int = 4) -> Dict[str, Any]:
         """
         Download data for all KSE-100 symbols.
         

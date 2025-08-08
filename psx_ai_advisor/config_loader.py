@@ -151,7 +151,7 @@ class ConfigLoader:
         
         # Validate machine_learning section
         ml_config = config['machine_learning']
-        required_ml_keys = ['model_type', 'min_training_samples', 'test_size', 'random_state']
+        required_ml_keys = ['model_type', 'min_training_samples', 'random_state']
         missing_ml_keys = [key for key in required_ml_keys if key not in ml_config]
         if missing_ml_keys:
             raise ValueError(f"Missing required machine_learning keys: {missing_ml_keys}")
@@ -183,7 +183,6 @@ class ConfigLoader:
             "machine_learning": {
                 "model_type": "RandomForest",
                 "min_training_samples": 200,
-                "test_size": 0.2,
                 "random_state": 42,
                 "n_estimators": 100,
                 "n_splits": 5,
@@ -278,11 +277,7 @@ class ConfigLoader:
                         env_value = int(env_value)
                     except ValueError:
                         continue
-                elif key in ['test_size']:
-                    try:
-                        env_value = float(env_value)
-                    except ValueError:
-                        continue
+                
                 elif key in ['console_output', 'detailed_errors']:
                     env_value = env_value.lower() in ('true', '1', 'yes', 'on')
                 

@@ -120,7 +120,6 @@ technical_indicators:
 machine_learning:
   model_type: "RandomForest"
   min_training_samples: 200
-  test_size: 0.2
   random_state: 42
   n_estimators: 100
   n_splits: 5
