@@ -12,19 +12,24 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Tuple, Optional, List
 from datetime import datetime, timedelta
-from sklearn.ensemble import RandomForestClassifier
+try:
+    import xgboost as xgb
+except Exception:
+    xgb = None
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.model_selection import train_test_split, TimeSeriesSplit, RandomizedSearchCV
 from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report, f1_score
 from sklearn.preprocessing import StandardScaler
-from scipy.stats import randint
+from scipy.stats import randint, uniform
 import warnings
 
 from .config_loader import get_section, get_value
 from .data_storage import DataStorage
 from .technical_analysis import TechnicalAnalyzer
 from .exceptions import (
-    MLPredictorError, InsufficientDataError, ModelTrainingError, 
-    ModelPersistenceError, ValidationError, create_error_context
+    MLPredictorError, InsufficientDataError, ModelTrainingError,
+    ModelPersistenceError, ValidationError, create_error_context,
+    XGBoostTrainingError, EnsembleCreationError
 )
 from .logging_config import get_logger, log_exception, create_operation_logger
 
@@ -99,6 +104,8 @@ class MLPredictor:
             'fp_cost': 1.0,
             'fn_cost': 1.0
         })
+
+        self._validate_optional_dependencies()
     
     def _ensure_model_directories(self) -> None:
         """Create model and scaler directories if they don't exist"""
@@ -108,6 +115,394 @@ class MLPredictor:
             logger.debug(f"Ensured model directories exist: {self.models_dir}, {self.scalers_dir}")
         except OSError as e:
             raise MLPredictorError(f"Failed to create model directories: {e}")
+
+    def _validate_optional_dependencies(self) -> None:
+        try:
+            import importlib
+            xgb_spec = importlib.util.find_spec('xgboost')
+            self.xgboost_available = xgb_spec is not None
+        except Exception:
+            self.xgboost_available = False
+        if not hasattr(self, 'xgboost_available'):
+            self.xgboost_available = False
+        if self.xgboost_available:
+            logger.debug("Optional dependency xgboost is available")
+        else:
+            logger.debug("Optional dependency xgboost not found; XGBoost features will be disabled")
+
+    def _get_xgb_param_distribution(self) -> dict:
+        if not getattr(self, 'xgboost_available', False):
+            raise XGBoostTrainingError("xgboost is not installed; cannot provide XGBoost parameter distribution")
+        return {
+            'n_estimators': randint(50, 301),
+            'max_depth': randint(3, 11),
+            'learning_rate': uniform(0.01, 0.19),
+            'subsample': uniform(0.6, 0.4),
+            'colsample_bytree': uniform(0.6, 0.4),
+            'min_child_weight': randint(1, 11),
+            'gamma': uniform(0.0, 0.5)
+        }
+
+    def _optimize_xgboost(self, X: np.ndarray, y: np.ndarray):
+        """
+        Optimize XGBoost hyperparameters using RandomizedSearchCV with TimeSeriesSplit.
+        
+        Args:
+            X (np.ndarray): Feature matrix
+            y (np.ndarray): Target variable
+            
+        Returns:
+            XGBClassifier: Best estimator from hyperparameter optimization
+            
+        Raises:
+            XGBoostTrainingError: If XGBoost is not available or optimization fails
+        """
+        if not getattr(self, 'xgboost_available', False):
+            raise XGBoostTrainingError("XGBoost is not available; cannot perform XGBoost optimization")
+        
+        logger.info("Starting XGBoost hyperparameter optimization...")
+        
+        try:
+            # Get XGBoost parameter distributions
+            param_distributions = self._get_xgb_param_distribution()
+            
+            # Use configured TimeSeriesSplit (same as Random Forest)
+            tscv = TimeSeriesSplit(n_splits=self.n_splits, max_train_size=self.max_train_size)
+            
+            # Create base XGBoost classifier with required settings
+            xgb_classifier = xgb.XGBClassifier(
+                eval_metric='logloss',  # Required: use logloss as eval metric
+                random_state=self.random_state,  # Required: same random_state as RF
+                n_jobs=-1,  # Required: parallel processing
+                verbosity=0  # Suppress XGBoost output during optimization
+            )
+            
+            # Perform randomized search
+            logger.info("Performing RandomizedSearchCV for XGBoost with TimeSeriesSplit...")
+            random_search = RandomizedSearchCV(
+                estimator=xgb_classifier,
+                param_distributions=param_distributions,
+                n_iter=50,  # Number of parameter settings sampled (same as RF)
+                cv=tscv,    # Use TimeSeriesSplit for cross-validation
+                scoring='accuracy',  # Optimize for accuracy
+                random_state=self.random_state,
+                n_jobs=-1,  # Required: parallel processing
+                verbose=0   # Suppress verbose output
+            )
+            
+            # Fit the randomized search
+            logger.info("Fitting XGBoost RandomizedSearchCV...")
+            random_search.fit(X, y)
+            
+            # Log the best parameters found
+            best_params = random_search.best_params_
+            best_score = random_search.best_score_
+            
+            logger.info(f"XGBoost hyperparameter optimization completed")
+            logger.info(f"Best XGBoost cross-validation score: {best_score:.4f}")
+            logger.info(f"Best XGBoost parameters found: {best_params}")
+            
+            # Log parameter comparison for transparency
+            logger.info("XGBoost optimization details:")
+            logger.info(f"  - n_estimators: {best_params.get('n_estimators', 'N/A')}")
+            logger.info(f"  - max_depth: {best_params.get('max_depth', 'N/A')}")
+            logger.info(f"  - learning_rate: {best_params.get('learning_rate', 'N/A'):.4f}")
+            logger.info(f"  - subsample: {best_params.get('subsample', 'N/A'):.4f}")
+            logger.info(f"  - colsample_bytree: {best_params.get('colsample_bytree', 'N/A'):.4f}")
+            logger.info(f"  - min_child_weight: {best_params.get('min_child_weight', 'N/A')}")
+            logger.info(f"  - gamma: {best_params.get('gamma', 'N/A'):.4f}")
+            
+            # Return the best estimator
+            return random_search.best_estimator_
+            
+        except Exception as e:
+            error_msg = f"XGBoost hyperparameter optimization failed: {e}"
+            logger.error(error_msg)
+            raise XGBoostTrainingError(error_msg)
+
+    def _calculate_ensemble_weights(self, rf_model, xgb_model, X: np.ndarray, y: np.ndarray) -> Tuple[float, float, Dict[str, float]]:
+        """
+        Calculate ensemble weights based on individual model cross-validation performance.
+        
+        Uses TimeSeriesSplit to evaluate both RF and XGBoost models independently,
+        then calculates normalized weights that sum to 1.0 based on individual CV scores.
+        
+        Args:
+            rf_model: Trained Random Forest model
+            xgb_model: Trained XGBoost model  
+            X (np.ndarray): Feature matrix
+            y (np.ndarray): Target variable
+            
+        Returns:
+            Tuple[float, float, Dict[str, float]]: RF weight, XGBoost weight, and individual CV scores
+            
+        Raises:
+            EnsembleCreationError: If weight calculation fails
+        """
+        try:
+            logger.info("Starting ensemble weight calculation using cross-validation performance...")
+            
+            # Use configured TimeSeriesSplit for consistent evaluation
+            tscv = TimeSeriesSplit(n_splits=self.n_splits, max_train_size=self.max_train_size)
+            
+            # Initialize score collectors
+            rf_cv_scores = []
+            xgb_cv_scores = []
+            
+            # Perform cross-validation for both models
+            logger.info(f"Evaluating models using {self.n_splits}-fold TimeSeriesSplit cross-validation...")
+            
+            for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
+                # Split data for this fold
+                X_train_fold = X[train_idx]
+                X_test_fold = X[test_idx]
+                y_train_fold = y[train_idx]
+                y_test_fold = y[test_idx]
+                
+                # Scale features for this fold
+                scaler_fold = StandardScaler()
+                X_train_fold_scaled = scaler_fold.fit_transform(X_train_fold)
+                X_test_fold_scaled = scaler_fold.transform(X_test_fold)
+                
+                # Evaluate Random Forest model
+                try:
+                    # Create RF model with same parameters as the trained model
+                    rf_params = rf_model.get_params()
+                    rf_fold = RandomForestClassifier(**rf_params)
+                    rf_fold.fit(X_train_fold_scaled, y_train_fold)
+                    
+                    # Make predictions and calculate accuracy
+                    rf_pred_fold = rf_fold.predict(X_test_fold_scaled)
+                    rf_accuracy_fold = accuracy_score(y_test_fold, rf_pred_fold)
+                    rf_cv_scores.append(rf_accuracy_fold)
+                    
+                    logger.debug(f"Fold {fold + 1} - RF accuracy: {rf_accuracy_fold:.4f}")
+                    
+                except Exception as e:
+                    logger.warning(f"RF evaluation failed on fold {fold + 1}: {e}")
+                    # Use a default low score for failed folds
+                    rf_cv_scores.append(0.5)
+                
+                # Evaluate XGBoost model
+                try:
+                    if self.xgboost_available and xgb_model is not None:
+                        # Create XGBoost model with same parameters as the trained model
+                        xgb_params = xgb_model.get_params()
+                        xgb_fold = xgb.XGBClassifier(**xgb_params)
+                        xgb_fold.fit(X_train_fold_scaled, y_train_fold)
+                        
+                        # Make predictions and calculate accuracy
+                        xgb_pred_fold = xgb_fold.predict(X_test_fold_scaled)
+                        xgb_accuracy_fold = accuracy_score(y_test_fold, xgb_pred_fold)
+                        xgb_cv_scores.append(xgb_accuracy_fold)
+                        
+                        logger.debug(f"Fold {fold + 1} - XGBoost accuracy: {xgb_accuracy_fold:.4f}")
+                    else:
+                        # XGBoost not available, use default low score
+                        xgb_cv_scores.append(0.5)
+                        logger.debug(f"Fold {fold + 1} - XGBoost not available, using default score")
+                        
+                except Exception as e:
+                    logger.warning(f"XGBoost evaluation failed on fold {fold + 1}: {e}")
+                    # Use a default low score for failed folds
+                    xgb_cv_scores.append(0.5)
+            
+            # Calculate mean CV scores for each model
+            rf_mean_cv_score = float(np.mean(rf_cv_scores))
+            xgb_mean_cv_score = float(np.mean(xgb_cv_scores))
+            
+            logger.info(f"Cross-validation results:")
+            logger.info(f"  - Random Forest mean CV accuracy: {rf_mean_cv_score:.4f} ± {np.std(rf_cv_scores):.4f}")
+            logger.info(f"  - XGBoost mean CV accuracy: {xgb_mean_cv_score:.4f} ± {np.std(xgb_cv_scores):.4f}")
+            
+            # Calculate weights based on relative performance
+            # Use performance scores directly as weights, then normalize
+            total_score = rf_mean_cv_score + xgb_mean_cv_score
+            
+            if total_score == 0:
+                # Fallback to equal weights if both models perform poorly
+                rf_weight = 0.5
+                xgb_weight = 0.5
+                logger.warning("Both models have zero CV scores, using equal weights")
+            else:
+                # Normalize weights so they sum to 1.0
+                rf_weight = rf_mean_cv_score / total_score
+                xgb_weight = xgb_mean_cv_score / total_score
+            
+            # Ensure weights sum to 1.0 (handle floating point precision)
+            weight_sum = rf_weight + xgb_weight
+            if abs(weight_sum - 1.0) > 1e-10:
+                rf_weight = rf_weight / weight_sum
+                xgb_weight = xgb_weight / weight_sum
+            
+            # Prepare individual CV scores dictionary for transparency
+            individual_cv_scores = {
+                'rf': rf_mean_cv_score,
+                'xgb': xgb_mean_cv_score,
+                'rf_std': float(np.std(rf_cv_scores)),
+                'xgb_std': float(np.std(xgb_cv_scores)),
+                'rf_scores': [float(score) for score in rf_cv_scores],
+                'xgb_scores': [float(score) for score in xgb_cv_scores]
+            }
+            
+            # Log weight calculation results with transparency
+            logger.info("Ensemble weight calculation completed:")
+            logger.info(f"  - Random Forest weight: {rf_weight:.4f} (based on CV score: {rf_mean_cv_score:.4f})")
+            logger.info(f"  - XGBoost weight: {xgb_weight:.4f} (based on CV score: {xgb_mean_cv_score:.4f})")
+            logger.info(f"  - Weight sum verification: {rf_weight + xgb_weight:.6f}")
+            
+            # Additional transparency logging
+            logger.info("Weight calculation transparency:")
+            logger.info(f"  - RF individual fold scores: {[f'{score:.4f}' for score in rf_cv_scores]}")
+            logger.info(f"  - XGBoost individual fold scores: {[f'{score:.4f}' for score in xgb_cv_scores]}")
+            logger.info(f"  - Weight calculation method: Performance-based normalization")
+            
+            return float(rf_weight), float(xgb_weight), individual_cv_scores
+            
+        except Exception as e:
+            error_msg = f"Ensemble weight calculation failed: {e}"
+            logger.error(error_msg)
+            raise EnsembleCreationError(error_msg)
+
+    def _create_ensemble_model(self, rf_model, xgb_model, X: np.ndarray, y: np.ndarray) -> Tuple[VotingClassifier, Dict[str, Any]]:
+        """
+        Create ensemble model using scikit-learn VotingClassifier with soft voting and calculated weights.
+        
+        Configures VotingClassifier with soft voting and calculated weights, implements ensemble model 
+        validation and error handling, and adds ensemble metadata storage for transparency.
+        
+        Args:
+            rf_model: Trained Random Forest model
+            xgb_model: Trained XGBoost model
+            X (np.ndarray): Feature matrix for weight calculation
+            y (np.ndarray): Target variable for weight calculation
+            
+        Returns:
+            Tuple[VotingClassifier, Dict[str, Any]]: Ensemble model and metadata
+            
+        Raises:
+            EnsembleCreationError: If ensemble creation fails
+        """
+        try:
+            logger.info("Starting ensemble model creation with VotingClassifier...")
+            
+            # Validate input models
+            if rf_model is None:
+                raise EnsembleCreationError("Random Forest model is None, cannot create ensemble")
+            if xgb_model is None:
+                raise EnsembleCreationError("XGBoost model is None, cannot create ensemble")
+            
+            # Validate that models have required methods
+            required_methods = ['predict', 'predict_proba', 'fit']
+            for method in required_methods:
+                if not hasattr(rf_model, method):
+                    raise EnsembleCreationError(f"Random Forest model missing required method: {method}")
+                if not hasattr(xgb_model, method):
+                    raise EnsembleCreationError(f"XGBoost model missing required method: {method}")
+            
+            logger.info("Input model validation completed successfully")
+            
+            # Calculate ensemble weights based on cross-validation performance
+            logger.info("Calculating ensemble weights using cross-validation performance...")
+            rf_weight, xgb_weight, individual_cv_scores = self._calculate_ensemble_weights(rf_model, xgb_model, X, y)
+            
+            # Validate calculated weights
+            if not (0 <= rf_weight <= 1) or not (0 <= xgb_weight <= 1):
+                raise EnsembleCreationError(f"Invalid weights calculated: RF={rf_weight}, XGB={xgb_weight}")
+            
+            weight_sum = rf_weight + xgb_weight
+            if abs(weight_sum - 1.0) > 1e-6:
+                raise EnsembleCreationError(f"Weights do not sum to 1.0: sum={weight_sum}")
+            
+            logger.info(f"Ensemble weights validated: RF={rf_weight:.4f}, XGB={xgb_weight:.4f}")
+            
+            # Create VotingClassifier with soft voting and calculated weights
+            logger.info("Creating VotingClassifier with soft voting...")
+            ensemble_model = VotingClassifier(
+                estimators=[
+                    ('rf', rf_model),      # Random Forest estimator
+                    ('xgb', xgb_model)     # XGBoost estimator
+                ],
+                voting='soft',             # Required: use soft voting (probability-based)
+                weights=[rf_weight, xgb_weight]  # Required: calculated weights
+            )
+            
+            logger.info("VotingClassifier created successfully with soft voting")
+            
+            # Validate ensemble model creation
+            logger.info("Validating ensemble model configuration...")
+            
+            # Check that ensemble has correct estimators
+            if len(ensemble_model.estimators) != 2:
+                raise EnsembleCreationError(f"Ensemble should have 2 estimators, got {len(ensemble_model.estimators)}")
+            
+            # Check that voting is set to soft
+            if ensemble_model.voting != 'soft':
+                raise EnsembleCreationError(f"Ensemble voting should be 'soft', got '{ensemble_model.voting}'")
+            
+            # Check that weights are correctly set
+            if ensemble_model.weights is None or len(ensemble_model.weights) != 2:
+                raise EnsembleCreationError("Ensemble weights not properly configured")
+            
+            expected_weights = [rf_weight, xgb_weight]
+            actual_weights = list(ensemble_model.weights)
+            for i, (expected, actual) in enumerate(zip(expected_weights, actual_weights)):
+                if abs(expected - actual) > 1e-6:
+                    raise EnsembleCreationError(f"Weight mismatch at index {i}: expected {expected}, got {actual}")
+            
+            logger.info("Ensemble model configuration validation completed successfully")
+            
+            # Create ensemble metadata for transparency
+            ensemble_metadata = {
+                'model_type': 'Ensemble_RF_XGB',
+                'voting_type': 'soft',
+                'ensemble_weights': {
+                    'rf': float(rf_weight),
+                    'xgb': float(xgb_weight)
+                },
+                'individual_cv_scores': individual_cv_scores,
+                'estimator_names': ['rf', 'xgb'],
+                'estimator_types': [
+                    type(rf_model).__name__,
+                    type(xgb_model).__name__
+                ],
+                'rf_params': rf_model.get_params(),
+                'xgb_params': xgb_model.get_params(),
+                'ensemble_params': {
+                    'voting': ensemble_model.voting,
+                    'weights': list(ensemble_model.weights)
+                },
+                'creation_timestamp': datetime.now().isoformat(),
+                'weight_calculation_method': 'cross_validation_performance_based',
+                'validation_passed': True
+            }
+            
+            # Log ensemble creation success with transparency details
+            logger.info("Ensemble model creation completed successfully:")
+            logger.info(f"  - Model type: {ensemble_metadata['model_type']}")
+            logger.info(f"  - Voting type: {ensemble_metadata['voting_type']}")
+            logger.info(f"  - RF weight: {rf_weight:.4f} (CV score: {individual_cv_scores['rf']:.4f})")
+            logger.info(f"  - XGBoost weight: {xgb_weight:.4f} (CV score: {individual_cv_scores['xgb']:.4f})")
+            logger.info(f"  - Estimators: {ensemble_metadata['estimator_names']}")
+            logger.info(f"  - Estimator types: {ensemble_metadata['estimator_types']}")
+            
+            # Additional transparency logging
+            logger.info("Ensemble metadata details:")
+            logger.info(f"  - Weight calculation method: {ensemble_metadata['weight_calculation_method']}")
+            logger.info(f"  - RF CV score std: {individual_cv_scores.get('rf_std', 'N/A'):.4f}")
+            logger.info(f"  - XGBoost CV score std: {individual_cv_scores.get('xgb_std', 'N/A'):.4f}")
+            logger.info(f"  - Validation status: {ensemble_metadata['validation_passed']}")
+            
+            return ensemble_model, ensemble_metadata
+            
+        except EnsembleCreationError:
+            # Re-raise EnsembleCreationError as-is
+            raise
+        except Exception as e:
+            error_msg = f"Ensemble model creation failed: {e}"
+            logger.error(error_msg)
+            logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+            raise EnsembleCreationError(error_msg)
 
     def _normalize_symbol(self, symbol: str) -> str:
         s = str(symbol).strip().upper()
@@ -133,6 +528,24 @@ class MLPredictor:
         normalized = self._normalize_symbol(symbol)
         clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
         return os.path.join(self.models_dir, f"{clean_symbol}_threshold.json")
+
+    def _get_ensemble_metadata_path(self, symbol: str) -> str:
+        """Get the file path for ensemble metadata"""
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
+        return os.path.join(self.models_dir, f"{clean_symbol}_ensemble_meta.json")
+
+    def _get_rf_model_path(self, symbol: str) -> str:
+        """Get the file path for individual Random Forest model"""
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
+        return os.path.join(self.models_dir, f"{clean_symbol}_rf_model.pkl")
+
+    def _get_xgb_model_path(self, symbol: str) -> str:
+        """Get the file path for individual XGBoost model"""
+        normalized = self._normalize_symbol(symbol)
+        clean_symbol = "".join(c for c in normalized if c.isalnum() or c in ('-', '_')).upper()
+        return os.path.join(self.models_dir, f"{clean_symbol}_xgb_model.pkl")
 
     def _tune_threshold(self, y_true: np.ndarray, y_proba_up: np.ndarray) -> Tuple[float, float]:
         thresholds = np.arange(self.threshold_min, self.threshold_max + 1e-9, self.threshold_step)
@@ -847,6 +1260,154 @@ class MLPredictor:
             raise
         except Exception as e:
             raise MLPredictorError(f"Error loading scaler for {symbol}: {e}")
+
+    def save_ensemble_metadata(self, symbol: str, metadata: Dict[str, Any]) -> bool:
+        """
+        Save ensemble metadata to disk for transparency.
+        
+        Args:
+            symbol (str): Stock symbol
+            metadata (Dict[str, Any]): Ensemble metadata dictionary
+            
+        Returns:
+            bool: True if save successful
+        """
+        try:
+            metadata_path = self._get_ensemble_metadata_path(symbol)
+            
+            # Ensure metadata is JSON serializable
+            import json
+            serializable_metadata = self._make_json_serializable(metadata)
+            
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(serializable_metadata, f, indent=2)
+            
+            logger.debug(f"Ensemble metadata saved for {symbol} at {metadata_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving ensemble metadata for {symbol}: {e}")
+            return False
+
+    def load_ensemble_metadata(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Load ensemble metadata from disk.
+        
+        Args:
+            symbol (str): Stock symbol
+            
+        Returns:
+            Optional[Dict[str, Any]]: Loaded ensemble metadata or None if not found
+        """
+        try:
+            metadata_path = self._get_ensemble_metadata_path(symbol)
+            
+            if not os.path.exists(metadata_path):
+                logger.debug(f"No ensemble metadata file found for {symbol}")
+                return None
+            
+            import json
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+            
+            logger.debug(f"Ensemble metadata loaded for {symbol} from {metadata_path}")
+            return metadata
+            
+        except Exception as e:
+            logger.warning(f"Error loading ensemble metadata for {symbol}: {e}")
+            return None
+
+    def save_individual_models(self, symbol: str, rf_model, xgb_model) -> bool:
+        """
+        Save individual RF and XGBoost models separately for debugging and analysis.
+        
+        Args:
+            symbol (str): Stock symbol
+            rf_model: Trained Random Forest model
+            xgb_model: Trained XGBoost model
+            
+        Returns:
+            bool: True if both models saved successfully
+        """
+        try:
+            rf_path = self._get_rf_model_path(symbol)
+            xgb_path = self._get_xgb_model_path(symbol)
+            
+            # Save Random Forest model
+            with open(rf_path, 'wb') as f:
+                pickle.dump(rf_model, f)
+            
+            # Save XGBoost model
+            with open(xgb_path, 'wb') as f:
+                pickle.dump(xgb_model, f)
+            
+            logger.debug(f"Individual models saved for {symbol}: RF at {rf_path}, XGB at {xgb_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving individual models for {symbol}: {e}")
+            return False
+
+    def load_individual_models(self, symbol: str) -> Tuple[Optional[Any], Optional[Any]]:
+        """
+        Load individual RF and XGBoost models from disk.
+        
+        Args:
+            symbol (str): Stock symbol
+            
+        Returns:
+            Tuple[Optional[Any], Optional[Any]]: RF model and XGBoost model, or None if not found
+        """
+        try:
+            rf_path = self._get_rf_model_path(symbol)
+            xgb_path = self._get_xgb_model_path(symbol)
+            
+            rf_model = None
+            xgb_model = None
+            
+            # Load Random Forest model
+            if os.path.exists(rf_path):
+                with open(rf_path, 'rb') as f:
+                    rf_model = pickle.load(f)
+                logger.debug(f"RF model loaded for {symbol} from {rf_path}")
+            
+            # Load XGBoost model
+            if os.path.exists(xgb_path):
+                with open(xgb_path, 'rb') as f:
+                    xgb_model = pickle.load(f)
+                logger.debug(f"XGBoost model loaded for {symbol} from {xgb_path}")
+            
+            return rf_model, xgb_model
+            
+        except Exception as e:
+            logger.warning(f"Error loading individual models for {symbol}: {e}")
+            return None, None
+
+    def _make_json_serializable(self, obj: Any) -> Any:
+        """
+        Convert object to JSON serializable format.
+        
+        Args:
+            obj: Object to convert
+            
+        Returns:
+            JSON serializable object
+        """
+        if isinstance(obj, dict):
+            return {key: self._make_json_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._make_json_serializable(item) for item in obj]
+        elif isinstance(obj, tuple):
+            return [self._make_json_serializable(item) for item in obj]
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, (np.integer, np.floating)):
+            return obj.item()
+        elif isinstance(obj, (int, float, str, bool)) or obj is None:
+            return obj
+        else:
+            # For complex objects, convert to string representation
+            return str(obj)
     
     def get_model_info(self, symbol: str) -> Dict[str, Any]:
         """

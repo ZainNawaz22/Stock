@@ -189,6 +189,14 @@ class TimeoutError(PSXAdvisorError):
     pass
 
 
+class XGBoostTrainingError(MLPredictorError):
+    pass
+
+
+class EnsembleCreationError(MLPredictorError):
+    pass
+
+
 # Exception mapping for backward compatibility with existing code
 EXCEPTION_MAPPING = {
     'PSXDataAcquisitionError': DataScrapingError,
@@ -200,6 +208,8 @@ EXCEPTION_MAPPING = {
     'NetworkError': NetworkError,
     'CSVDownloadError': CSVDownloadError,
     'CSVParsingError': CSVParsingError,
+    'XGBoostTrainingError': XGBoostTrainingError,
+    'EnsembleCreationError': EnsembleCreationError,
 }
 
 
