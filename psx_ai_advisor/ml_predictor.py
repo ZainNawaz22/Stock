@@ -795,11 +795,15 @@ class MLPredictor:
             logger.info("XGBoost optimization details:")
             logger.info(f"  - n_estimators: {best_params.get('n_estimators', 'N/A')}")
             logger.info(f"  - max_depth: {best_params.get('max_depth', 'N/A')}")
-            logger.info(f"  - learning_rate: {best_params.get('learning_rate', 'N/A'):.4f}")
-            logger.info(f"  - subsample: {best_params.get('subsample', 'N/A'):.4f}")
-            logger.info(f"  - colsample_bytree: {best_params.get('colsample_bytree', 'N/A'):.4f}")
+            lr = best_params.get('learning_rate', 'N/A')
+            logger.info(f"  - learning_rate: {lr:.4f}" if isinstance(lr, (int, float)) else f"  - learning_rate: {lr}")
+            ss = best_params.get('subsample', 'N/A')
+            logger.info(f"  - subsample: {ss:.4f}" if isinstance(ss, (int, float)) else f"  - subsample: {ss}")
+            cs = best_params.get('colsample_bytree', 'N/A')
+            logger.info(f"  - colsample_bytree: {cs:.4f}" if isinstance(cs, (int, float)) else f"  - colsample_bytree: {cs}")
             logger.info(f"  - min_child_weight: {best_params.get('min_child_weight', 'N/A')}")
-            logger.info(f"  - gamma: {best_params.get('gamma', 'N/A'):.4f}")
+            gm = best_params.get('gamma', 'N/A')
+            logger.info(f"  - gamma: {gm:.4f}" if isinstance(gm, (int, float)) else f"  - gamma: {gm}")
             
             # Performance monitoring
             if self.performance_monitoring:
@@ -1065,8 +1069,10 @@ class MLPredictor:
             # Additional transparency logging
             logger.info("Ensemble metadata details:")
             logger.info(f"  - Weight calculation method: {ensemble_metadata['weight_calculation_method']}")
-            logger.info(f"  - RF CV score std: {individual_cv_scores.get('rf_std', 'N/A'):.4f}")
-            logger.info(f"  - XGBoost CV score std: {individual_cv_scores.get('xgb_std', 'N/A'):.4f}")
+            rf_std = individual_cv_scores.get('rf_std', 'N/A')
+            logger.info(f"  - RF CV score std: {rf_std:.4f}" if isinstance(rf_std, (int, float)) else f"  - RF CV score std: {rf_std}")
+            xgb_std = individual_cv_scores.get('xgb_std', 'N/A')
+            logger.info(f"  - XGBoost CV score std: {xgb_std:.4f}" if isinstance(xgb_std, (int, float)) else f"  - XGBoost CV score std: {xgb_std}")
             logger.info(f"  - Validation status: {ensemble_metadata['validation_passed']}")
             
             return ensemble_model, ensemble_metadata
@@ -2360,32 +2366,16 @@ class MLPredictor:
                                                        error_details=str(ensemble_error))
                     logger.error(f"Ensemble creation error context: {error_context}")
                     
-                    # Implement graceful fallback to best individual model
-                    try:
-                        logger.info("Implementing graceful fallback to best individual model")
-                        model, model_type, individual_cv_scores, fallback_info = self._select_best_individual_model(
-                            rf_model, xgb_model, X, y, tscv, symbol
-                        )
-                        ensemble_metadata = None
-                        
-                    except Exception as fallback_error:
-                        logger.error(f"Best individual model fallback failed: {fallback_error}")
-                        logger.info("Final fallback to Random Forest model")
-                        
-                        error_context = create_error_context('ensemble_fallback', symbol=symbol,
-                                                           error_type=type(fallback_error).__name__)
-                        log_exception(logger, fallback_error, error_context)
-                        
-                        model = rf_model
-                        model_type = 'RandomForest'
-                        ensemble_metadata = None
-                        individual_cv_scores = None
-                        fallback_info = {
-                            'fallback_reason': 'ensemble_creation_and_fallback_failed',
-                            'ensemble_error': str(ensemble_error),
-                            'fallback_error': str(fallback_error),
-                            'final_model': 'RandomForest'
-                        }
+                    # Graceful fallback to Random Forest for backward compatibility
+                    logger.info("Falling back to Random Forest model after ensemble creation failure")
+                    model = rf_model
+                    model_type = 'RandomForest'
+                    ensemble_metadata = None
+                    individual_cv_scores = None
+                    fallback_info = {
+                        'fallback_reason': 'ensemble_creation_failed',
+                        'final_model': 'RandomForest'
+                    }
                         
                 except Exception as unexpected_error:
                     logger.error(f"Ensemble creation failed with unexpected error: {unexpected_error}")
@@ -2396,28 +2386,16 @@ class MLPredictor:
                                                        error_details=str(unexpected_error))
                     log_exception(logger, unexpected_error, error_context)
                     
-                    # Implement graceful fallback to best individual model
-                    try:
-                        logger.info("Implementing graceful fallback after unexpected ensemble error")
-                        model, model_type, individual_cv_scores, fallback_info = self._select_best_individual_model(
-                            rf_model, xgb_model, X, y, tscv, symbol
-                        )
-                        ensemble_metadata = None
-                        
-                    except Exception as fallback_error:
-                        logger.error(f"Fallback after unexpected error failed: {fallback_error}")
-                        logger.info("Final fallback to Random Forest model")
-                        
-                        model = rf_model
-                        model_type = 'RandomForest'
-                        ensemble_metadata = None
-                        individual_cv_scores = None
-                        fallback_info = {
-                            'fallback_reason': 'ensemble_unexpected_error_and_fallback_failed',
-                            'ensemble_error': str(unexpected_error),
-                            'fallback_error': str(fallback_error),
-                            'final_model': 'RandomForest'
-                        }
+                    # Graceful fallback to Random Forest for backward compatibility
+                    logger.info("Falling back to Random Forest model after unexpected ensemble error")
+                    model = rf_model
+                    model_type = 'RandomForest'
+                    ensemble_metadata = None
+                    individual_cv_scores = None
+                    fallback_info = {
+                        'fallback_reason': 'ensemble_unexpected_error',
+                        'final_model': 'RandomForest'
+                    }
             
             # Step 3: Make predictions on test set
             logger.info("Making predictions on test set...")
