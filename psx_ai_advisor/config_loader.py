@@ -156,6 +156,18 @@ class ConfigLoader:
         if missing_ml_keys:
             raise ValueError(f"Missing required machine_learning keys: {missing_ml_keys}")
         
+        # Validate model_type value
+        valid_model_types = ['RandomForest', 'random_forest', 'ensemble', 'xgboost']
+        model_type = ml_config.get('model_type', '').lower()
+        if model_type not in [t.lower() for t in valid_model_types]:
+            raise ValueError(f"Invalid model_type '{ml_config.get('model_type')}'. Must be one of: {valid_model_types}")
+        
+        # Validate ensemble configuration if model_type is ensemble
+        if model_type == 'ensemble':
+            if 'ensemble' not in ml_config:
+                raise ValueError("Ensemble configuration section is required when model_type is 'ensemble'")
+            self._validate_ensemble_config(ml_config)
+        
         return True
     
     def _get_default_config(self) -> Dict[str, Any]:
@@ -199,6 +211,17 @@ class ConfigLoader:
                         "fp_cost": 1.0,
                         "fn_cost": 1.0
                     }
+                },
+                "ensemble": {
+                    "models": ["random_forest", "xgboost"],
+                    "voting": "soft",
+                    "optimize_weights": True,
+                    "fallback_strategy": "best_individual"
+                },
+                "xgboost": {
+                    "eval_metric": "logloss",
+                    "early_stopping_rounds": 10,
+                    "verbose": False
                 }
             },
             "storage": {
@@ -258,6 +281,84 @@ class ConfigLoader:
         
         return result
     
+    def _validate_ensemble_config(self, ml_config: Dict[str, Any]) -> None:
+        """
+        Validate ensemble-specific configuration
+        
+        Args:
+            ml_config (Dict[str, Any]): Machine learning configuration section
+            
+        Raises:
+            ValueError: If ensemble configuration is invalid
+        """
+        ensemble_config = ml_config['ensemble']
+        
+        # Validate required ensemble keys
+        required_ensemble_keys = ['models', 'voting', 'optimize_weights']
+        missing_ensemble_keys = [key for key in required_ensemble_keys if key not in ensemble_config]
+        if missing_ensemble_keys:
+            raise ValueError(f"Missing required ensemble configuration keys: {missing_ensemble_keys}")
+        
+        # Validate models list
+        models = ensemble_config.get('models', [])
+        if not isinstance(models, list) or len(models) < 2:
+            raise ValueError("Ensemble models must be a list with at least 2 models")
+        
+        valid_models = ['random_forest', 'xgboost']
+        invalid_models = [model for model in models if model not in valid_models]
+        if invalid_models:
+            raise ValueError(f"Invalid ensemble models: {invalid_models}. Valid models are: {valid_models}")
+        
+        # Validate voting type
+        voting = ensemble_config.get('voting', '')
+        valid_voting_types = ['soft', 'hard']
+        if voting not in valid_voting_types:
+            raise ValueError(f"Invalid voting type '{voting}'. Must be one of: {valid_voting_types}")
+        
+        # Validate optimize_weights
+        optimize_weights = ensemble_config.get('optimize_weights')
+        if not isinstance(optimize_weights, bool):
+            raise ValueError("optimize_weights must be a boolean value")
+        
+        # Validate optional fallback_strategy
+        fallback_strategy = ensemble_config.get('fallback_strategy')
+        if fallback_strategy is not None:
+            valid_fallback_strategies = ['best_individual', 'random_forest', 'xgboost']
+            if fallback_strategy not in valid_fallback_strategies:
+                raise ValueError(f"Invalid fallback_strategy '{fallback_strategy}'. Must be one of: {valid_fallback_strategies}")
+        
+        # Validate XGBoost configuration if xgboost is in models
+        if 'xgboost' in models and 'xgboost' in ml_config:
+            self._validate_xgboost_config(ml_config['xgboost'])
+    
+    def _validate_xgboost_config(self, xgb_config: Dict[str, Any]) -> None:
+        """
+        Validate XGBoost-specific configuration
+        
+        Args:
+            xgb_config (Dict[str, Any]): XGBoost configuration section
+            
+        Raises:
+            ValueError: If XGBoost configuration is invalid
+        """
+        # Validate eval_metric
+        eval_metric = xgb_config.get('eval_metric')
+        if eval_metric is not None:
+            valid_eval_metrics = ['logloss', 'error', 'auc', 'aucpr']
+            if eval_metric not in valid_eval_metrics:
+                raise ValueError(f"Invalid XGBoost eval_metric '{eval_metric}'. Must be one of: {valid_eval_metrics}")
+        
+        # Validate early_stopping_rounds
+        early_stopping = xgb_config.get('early_stopping_rounds')
+        if early_stopping is not None:
+            if not isinstance(early_stopping, int) or early_stopping < 1:
+                raise ValueError("XGBoost early_stopping_rounds must be a positive integer")
+        
+        # Validate verbose
+        verbose = xgb_config.get('verbose')
+        if verbose is not None and not isinstance(verbose, bool):
+            raise ValueError("XGBoost verbose must be a boolean value")
+
     def _apply_env_overrides(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Apply environment variable overrides to configuration
@@ -317,6 +418,83 @@ class ConfigLoader:
         """
         self.environment = environment
         self._config = None  # Force reload on next access
+    
+    def is_ensemble_enabled(self) -> bool:
+        """
+        Check if ensemble model is enabled
+        
+        Returns:
+            bool: True if model_type is 'ensemble'
+        """
+        try:
+            model_type = self.get_value('machine_learning', 'model_type', 'RandomForest')
+            return model_type.lower() == 'ensemble'
+        except Exception:
+            return False
+    
+    def get_ensemble_config(self) -> Dict[str, Any]:
+        """
+        Get ensemble configuration with defaults
+        
+        Returns:
+            Dict[str, Any]: Ensemble configuration
+        """
+        try:
+            ml_config = self.get_section('machine_learning')
+            ensemble_config = ml_config.get('ensemble', {})
+            
+            # Apply defaults for missing keys
+            defaults = {
+                'models': ['random_forest', 'xgboost'],
+                'voting': 'soft',
+                'optimize_weights': True,
+                'fallback_strategy': 'best_individual'
+            }
+            
+            for key, default_value in defaults.items():
+                if key not in ensemble_config:
+                    ensemble_config[key] = default_value
+            
+            return ensemble_config
+        except Exception:
+            # Return default ensemble config if section is missing
+            return {
+                'models': ['random_forest', 'xgboost'],
+                'voting': 'soft',
+                'optimize_weights': True,
+                'fallback_strategy': 'best_individual'
+            }
+    
+    def get_xgboost_config(self) -> Dict[str, Any]:
+        """
+        Get XGBoost configuration with defaults
+        
+        Returns:
+            Dict[str, Any]: XGBoost configuration
+        """
+        try:
+            ml_config = self.get_section('machine_learning')
+            xgb_config = ml_config.get('xgboost', {})
+            
+            # Apply defaults for missing keys
+            defaults = {
+                'eval_metric': 'logloss',
+                'early_stopping_rounds': 10,
+                'verbose': False
+            }
+            
+            for key, default_value in defaults.items():
+                if key not in xgb_config:
+                    xgb_config[key] = default_value
+            
+            return xgb_config
+        except Exception:
+            # Return default XGBoost config if section is missing
+            return {
+                'eval_metric': 'logloss',
+                'early_stopping_rounds': 10,
+                'verbose': False
+            }
 
 
 # Global configuration instance
@@ -359,3 +537,33 @@ def get_value(section: str, key: str, default: Any = None) -> Any:
         Any: Configuration value or default
     """
     return config_loader.get_value(section, key, default)
+
+
+def is_ensemble_enabled() -> bool:
+    """
+    Convenience function to check if ensemble model is enabled
+    
+    Returns:
+        bool: True if model_type is 'ensemble'
+    """
+    return config_loader.is_ensemble_enabled()
+
+
+def get_ensemble_config() -> Dict[str, Any]:
+    """
+    Convenience function to get ensemble configuration
+    
+    Returns:
+        Dict[str, Any]: Ensemble configuration with defaults
+    """
+    return config_loader.get_ensemble_config()
+
+
+def get_xgboost_config() -> Dict[str, Any]:
+    """
+    Convenience function to get XGBoost configuration
+    
+    Returns:
+        Dict[str, Any]: XGBoost configuration with defaults
+    """
+    return config_loader.get_xgboost_config()

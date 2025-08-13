@@ -29,6 +29,15 @@ machine_learning:
       tn_reward: 0.0
       fp_cost: 1.0
       fn_cost: 1.0
+  ensemble:
+    models: ["random_forest", "xgboost"]
+    voting: "soft"
+    optimize_weights: true
+    fallback_strategy: "best_individual"
+  xgboost:
+    eval_metric: "logloss"
+    early_stopping_rounds: 10
+    verbose: false
 performance:
   max_concurrent_requests: 5
   request_timeout: 30

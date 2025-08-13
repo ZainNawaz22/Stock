@@ -390,6 +390,20 @@ class OperationLogger:
         
         if symbol:
             self.context['symbol'] = symbol
+        
+        
+    # Proxy standard logging methods to the underlying logger so this object can be used like a logger
+    def info(self, message: str):
+        self.logger.info(message, extra={'operation_context': self.context})
+    
+    def warning(self, message: str):
+        self.logger.warning(message, extra={'operation_context': self.context})
+    
+    def error(self, message: str):
+        self.logger.error(message, extra={'operation_context': self.context})
+    
+    def debug(self, message: str):
+        self.logger.debug(message, extra={'operation_context': self.context})
     
     def __enter__(self):
         """Start operation logging"""

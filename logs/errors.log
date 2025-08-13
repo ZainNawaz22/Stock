@@ -170,3 +170,33 @@ TimeoutError: 91 (of 114) futures unfinished
 2025-08-09 00:43:07 | ERROR    | yfinance                  | _fetch              :592  | PID:3660 | HTTP Error 404: 
 2025-08-09 00:43:09 | ERROR    | yfinance                  | history             :281  | PID:3660 | $SYSTEMS.KA: possibly delisted; no price data found  (period=5y) (Yahoo error = "No data found, symbol may be delisted")
 2025-08-09 00:43:19 | ERROR    | yfinance                  | history             :281  | PID:3660 | $BYCO.KA: possibly delisted; no price data found  (period=5y) (Yahoo error = "No data found, symbol may be delisted")
+2025-08-12 15:52:38 | ERROR    | psx_ai_advisor.api_monitoring | log_error_with_context:260  | PID:31528 | Error: TimeoutError: 47 (of 114) futures unfinished (Context: operation=get_stocks)
+Traceback (most recent call last):
+  File "D:\webscrapping\stock\api_server.py", line 504, in get_stocks
+    for future in as_completed(future_to_symbol, timeout=timeout_seconds):
+                  ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\concurrent\futures\_base.py", line 239, in as_completed
+    raise TimeoutError(
+            '%d (of %d) futures unfinished' % (
+            len(pending), total_futures))
+TimeoutError: 47 (of 114) futures unfinished
+2025-08-12 15:52:38 | ERROR    | psx_ai_advisor.api_monitoring | wrapper             :173  | PID:31528 | Failed get_stocks after 78.813s - 500: Unexpected error in get_stocks: 47 (of 114) futures unfinished
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for ABL_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for ABOT_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for ADMM_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for AGP_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for AGIL_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for AICL_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for AIRLINK_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for APL_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for ANL_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 00:06:28 | ERROR    | api_server                | process_single_prediction:382  | PID:9124 | Error generating prediction for AKBL_HISTORICAL_DATA: 'OperationLogger' object has no attribute 'error'
+2025-08-14 01:06:26 | ERROR    | psx_ai_advisor.ml_predictor | _optimize_xgboost   :821  | PID:11756 | XGBoost hyperparameter optimization failed: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:06:27 | ERROR    | psx_ai_advisor.ml_predictor | _create_ensemble_model:1079 | PID:11756 | Ensemble model creation failed: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:06:27 | ERROR    | psx_ai_advisor.ml_predictor | _create_ensemble_model:1080 | PID:11756 | Error details: ValueError: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:10:57 | ERROR    | psx_ai_advisor.ml_predictor | _optimize_xgboost   :821  | PID:2440 | XGBoost hyperparameter optimization failed: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:10:58 | ERROR    | psx_ai_advisor.ml_predictor | _create_ensemble_model:1079 | PID:2440 | Ensemble model creation failed: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:10:58 | ERROR    | psx_ai_advisor.ml_predictor | _create_ensemble_model:1080 | PID:2440 | Error details: ValueError: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:11:37 | ERROR    | psx_ai_advisor.ml_predictor | _optimize_xgboost   :821  | PID:10516 | XGBoost hyperparameter optimization failed: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:11:37 | ERROR    | psx_ai_advisor.ml_predictor | _create_ensemble_model:1079 | PID:10516 | Ensemble model creation failed: Unknown format code 'f' for object of type 'str'
+2025-08-14 01:11:37 | ERROR    | psx_ai_advisor.ml_predictor | _create_ensemble_model:1080 | PID:10516 | Error details: ValueError: Unknown format code 'f' for object of type 'str'
