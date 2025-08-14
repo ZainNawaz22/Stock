@@ -87,9 +87,6 @@ class MLPredictor:
         self.scalers = {}
         self.thresholds = {}
         
-        # Initialize thread pool for ML operations
-        self._ml_thread_pool = ThreadPoolExecutor(max_workers=self.max_workers)
-        
         # Performance optimization and caching
         self.cv_cache = {}  # Cache for cross-validation results
         self.cache_dir = os.path.join(self.data_dir, 'cache')
@@ -98,6 +95,9 @@ class MLPredictor:
         self.max_workers = self.ml_config.get('max_workers', min(4, os.cpu_count() or 1))
         self.memory_efficient_storage = self.ml_config.get('memory_efficient_storage', True)
         self.performance_monitoring = self.ml_config.get('performance_monitoring', True)
+        
+        # Initialize thread pool for ML operations
+        self._ml_thread_pool = ThreadPoolExecutor(max_workers=self.max_workers)
         
         # Enhanced performance optimization settings
         self.training_time_limit_multiplier = self.ml_config.get('training_time_limit_multiplier', 2.0)  # Max 2x RF training time

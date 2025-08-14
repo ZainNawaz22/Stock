@@ -798,7 +798,7 @@ async def get_predictions(
                         "prediction": None,
                         "confidence": None
                     })
-                    failed_predictions += 1
+                failed_predictions += 1
         
         # Update cache timestamp
         _last_system_update = datetime.now()
@@ -933,14 +933,14 @@ async def regenerate_predictions(
             except Exception as e:
                 symbol = future_to_symbol[future]
                 logger.error(f"Prediction regeneration timeout/error for {symbol}: {e}")
-                    predictions.append({
+                predictions.append({
                         "symbol": symbol,
                         "error": "regeneration_timeout",
                         "message": "Prediction regeneration processing timed out",
                         "prediction": None,
                         "confidence": None
                     })
-                    failed_predictions += 1
+                failed_predictions += 1
         
         # Update cache timestamp
         global _last_system_update
