@@ -1581,6 +1581,7 @@ class MLPredictor:
             InsufficientDataError: If not enough data for training
             ModelTrainingError: If all training attempts fail
         """
+        operation_logger = create_operation_logger('train_ensemble_with_fallback', symbol=symbol)
         
         try:
             # Attempt ensemble training with comprehensive error handling

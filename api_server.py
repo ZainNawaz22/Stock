@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 import uvicorn
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 import threading
 import time
 
@@ -508,34 +508,52 @@ async def get_stocks(
         timeout_seconds = base_timeout + (len(symbols_to_process) // 10)  # Add time for more symbols
         max_workers = 3 if include_predictions else 6  # Adjust workers for better performance
         
-        # Use global thread pool for parallel processing
         stocks_info = []
         future_to_symbol = {
             _thread_pool.submit(process_symbol_summary, symbol, include_predictions): symbol 
             for symbol in symbols_to_process
         }
-        
-        # Collect results as they complete
-        for future in as_completed(future_to_symbol, timeout=timeout_seconds):
-            try:
-                stock_info = future.result()
-                if stock_info.get('has_data', False):
-                    stocks_info.append(stock_info)
-            except Exception as e:
-                symbol = future_to_symbol[future]
-                logger.warning(f"Error processing {symbol}: {e}")
-                stocks_info.append({
-                    "symbol": symbol,
-                    "name": symbol,
-                    "current_price": 0.0,
-                    "change": 0.0,
-                    "change_percent": 0.0,
-                    "volume": 0,
-                    "last_updated": datetime.now().isoformat(),
-                    "has_data": False,
-                    "error": "Processing timeout or error",
-                    "prediction": None
-                })
+        deadline = time.time() + timeout_seconds
+        pending = set(future_to_symbol.keys())
+        while pending:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            done, pending = wait(pending, timeout=remaining, return_when=FIRST_COMPLETED)
+            for future in done:
+                try:
+                    stock_info = future.result()
+                    if stock_info.get('has_data', False):
+                        stocks_info.append(stock_info)
+                except Exception as e:
+                    symbol = future_to_symbol[future]
+                    logger.warning(f"Error processing {symbol}: {e}")
+                    stocks_info.append({
+                        "symbol": symbol,
+                        "name": symbol,
+                        "current_price": 0.0,
+                        "change": 0.0,
+                        "change_percent": 0.0,
+                        "volume": 0,
+                        "last_updated": datetime.now().isoformat(),
+                        "has_data": False,
+                        "error": "Processing timeout or error",
+                        "prediction": None
+                    })
+        for future in pending:
+            symbol = future_to_symbol[future]
+            stocks_info.append({
+                "symbol": symbol,
+                "name": symbol,
+                "current_price": 0.0,
+                "change": 0.0,
+                "change_percent": 0.0,
+                "volume": 0,
+                "last_updated": datetime.now().isoformat(),
+                "has_data": False,
+                "error": "Processing timeout or error",
+                "prediction": None
+            })
         
         # Sort by symbol
         stocks_info.sort(key=lambda x: x['symbol'])
@@ -771,34 +789,46 @@ async def get_predictions(
         successful_predictions = 0
         failed_predictions = 0
         
-        # Use global thread pool for parallel processing
         future_to_symbol = {
             _thread_pool.submit(process_single_prediction, symbol): symbol 
             for symbol in symbol_list
         }
-        
-        # Collect results as they complete with timeout
-        for future in as_completed(future_to_symbol, timeout=30):  # 30 second timeout
-            try:
-                prediction = future.result()
-                predictions.append(prediction)
-                
-                if prediction.get('prediction') is not None:
-                    successful_predictions += 1
-                else:
-                    failed_predictions += 1
-                    
-            except Exception as e:
-                symbol = future_to_symbol[future]
-                logger.error(f"Prediction timeout/error for {symbol}: {e}")
-                predictions.append({
-                    "symbol": symbol,
+        deadline = time.time() + 25
+        pending = set(future_to_symbol.keys())
+        while pending:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            done, pending = wait(pending, timeout=remaining, return_when=FIRST_COMPLETED)
+            for future in done:
+                try:
+                    prediction = future.result()
+                    predictions.append(prediction)
+                    if prediction.get('prediction') is not None:
+                        successful_predictions += 1
+                    else:
+                        failed_predictions += 1
+                except Exception as e:
+                    symbol = future_to_symbol[future]
+                    logger.error(f"Prediction timeout/error for {symbol}: {e}")
+                    predictions.append({
+                        "symbol": symbol,
                         "error": "prediction_timeout",
                         "message": "Prediction processing timed out",
                         "prediction": None,
                         "confidence": None
                     })
-                failed_predictions += 1
+                    failed_predictions += 1
+        for future in pending:
+            symbol = future_to_symbol[future]
+            predictions.append({
+                "symbol": symbol,
+                "error": "prediction_timeout",
+                "message": "Prediction processing timed out",
+                "prediction": None,
+                "confidence": None
+            })
+            failed_predictions += 1
         
         # Update cache timestamp
         _last_system_update = datetime.now()
@@ -873,12 +903,32 @@ async def regenerate_predictions(
         # Define function to process single prediction with optional retraining
         def process_regeneration(symbol: str) -> Dict[str, Any]:
             try:
-                # Optionally retrain model
+                # Optionally retrain model with timeout protection
                 if retrain_models:
                     try:
                         logger.info(f"Retraining model for {symbol}")
-                        training_result = ml_predictor.train_model(symbol)
-                        logger.info(f"Model retrained for {symbol} with accuracy: {training_result.get('accuracy', 'N/A')}")
+                        # Set a reasonable timeout for model training to prevent frontend timeouts
+                        training_start = time.time()
+                        max_training_time = 30  # 30 seconds max per model
+                        
+                        try:
+                            # Use asyncio.wait_for equivalent for thread-based timeout
+                            training_result = ml_predictor._train_ensemble_model_with_fallback(
+                                symbol, optimize_params=False  # Disable optimization for faster training
+                            )
+                            training_time = time.time() - training_start
+                            
+                            if training_time > max_training_time:
+                                logger.warning(f"Model training for {symbol} took {training_time:.2f}s (exceeded {max_training_time}s limit)")
+                            else:
+                                logger.info(f"Model retrained for {symbol} in {training_time:.2f}s with accuracy: {training_result.get('accuracy', 'N/A')}")
+                                
+                        except Exception:
+                            # Fallback to basic model training without optimization
+                            training_result = ml_predictor.train_model(symbol)
+                            training_time = time.time() - training_start
+                            logger.info(f"Model retrained (fallback) for {symbol} in {training_time:.2f}s")
+                            
                     except Exception as e:
                         logger.warning(f"Model retraining failed for {symbol}: {e}")
                 
@@ -908,39 +958,64 @@ async def regenerate_predictions(
                     "confidence": None
                 }
         
-        # Process predictions in parallel
+        # Process predictions in parallel with extended timeout for retraining
         predictions = []
         successful_predictions = 0
         failed_predictions = 0
         
-        # Use global thread pool for parallel processing
+        # Adjust timeout based on whether retraining is requested
+        base_timeout = 60 if retrain_models else 25  # Extended timeout for retraining
+        timeout_per_symbol = 45 if retrain_models else 5  # Per-symbol timeout
+        total_timeout = min(base_timeout + (len(symbol_list) * timeout_per_symbol // 4), 300)  # Max 5 minutes
+        
+        logger.info(f"Processing {len(symbol_list)} symbols with {total_timeout}s timeout (retrain: {retrain_models})")
+        
         future_to_symbol = {
             _thread_pool.submit(process_regeneration, symbol): symbol 
             for symbol in symbol_list
         }
+        deadline = time.time() + total_timeout
+        pending = set(future_to_symbol.keys())
         
-        # Collect results as they complete with timeout
-        for future in as_completed(future_to_symbol, timeout=45):  # 45 second timeout for regeneration
-            try:
-                prediction = future.result()
-                predictions.append(prediction)
-                
-                if prediction.get('prediction') is not None:
-                    successful_predictions += 1
-                else:
-                    failed_predictions += 1
-                    
-            except Exception as e:
-                symbol = future_to_symbol[future]
-                logger.error(f"Prediction regeneration timeout/error for {symbol}: {e}")
-                predictions.append({
+        while pending:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                logger.warning(f"Regeneration timeout reached, {len(pending)} symbols still pending")
+                break
+            done, pending = wait(pending, timeout=min(remaining, 10), return_when=FIRST_COMPLETED)
+            
+            for future in done:
+                try:
+                    prediction = future.result()
+                    predictions.append(prediction)
+                    if prediction.get('prediction') is not None:
+                        successful_predictions += 1
+                    else:
+                        failed_predictions += 1
+                except Exception as e:
+                    symbol = future_to_symbol[future]
+                    logger.error(f"Prediction regeneration timeout/error for {symbol}: {e}")
+                    predictions.append({
                         "symbol": symbol,
                         "error": "regeneration_timeout",
                         "message": "Prediction regeneration processing timed out",
                         "prediction": None,
                         "confidence": None
                     })
-                failed_predictions += 1
+                    failed_predictions += 1
+        
+        # Handle remaining pending futures
+        for future in pending:
+            symbol = future_to_symbol[future]
+            logger.warning(f"Cancelling pending regeneration for {symbol}")
+            predictions.append({
+                "symbol": symbol,
+                "error": "regeneration_timeout",
+                "message": "Prediction regeneration processing timed out",
+                "prediction": None,
+                "confidence": None
+            })
+            failed_predictions += 1
         
         # Update cache timestamp
         global _last_system_update
@@ -981,31 +1056,70 @@ async def regenerate_single_prediction(
     Clears the cache for this symbol and regenerates its prediction.
     Optionally retrains the model first.
     """
+    global _last_system_update
     try:
         symbol_upper = symbol.upper()
         # clear caches for this symbol
         clear_symbol_caches([symbol_upper])
 
-        # optional retraining
+        # optional retraining with timeout protection
         if retrain_model:
             try:
                 logger.info(f"Retraining model for {symbol_upper} (single regenerate)")
-                ml_predictor.train_model(symbol_upper)
+                training_start = time.time()
+                max_training_time = 45  # 45 seconds max for single model
+                
+                try:
+                    # Disable optimization for faster training in single regeneration
+                    training_result = ml_predictor._train_ensemble_model_with_fallback(
+                        symbol_upper, optimize_params=False
+                    )
+                    training_time = time.time() - training_start
+                    
+                    if training_time > max_training_time:
+                        logger.warning(f"Single model training for {symbol_upper} took {training_time:.2f}s (exceeded {max_training_time}s limit)")
+                    else:
+                        logger.info(f"Single model retrained for {symbol_upper} in {training_time:.2f}s")
+                        
+                except Exception:
+                    # Fallback to basic model training
+                    ml_predictor.train_model(symbol_upper)
+                    training_time = time.time() - training_start
+                    logger.info(f"Single model retrained (fallback) for {symbol_upper} in {training_time:.2f}s")
+                    
             except Exception as e:
-                logger.warning(f"Retraining failed for {symbol_upper}: {e}")
+                logger.warning(f"Single retraining failed for {symbol_upper}: {e}")
 
-        # generate fresh prediction
-        log_ml_operation("regenerate_single", symbol_upper)
-        prediction = ml_predictor.predict_movement(symbol_upper)
-
-        # cache fresh prediction
-        set_cached_data(_cached_predictions, symbol_upper, prediction)
-
-        # update last update time
-        global _last_system_update
-        _last_system_update = datetime.now()
-
-        return PredictionResult(**prediction)
+        # generate fresh prediction with robust error handling
+        try:
+            log_ml_operation("regenerate_single", symbol_upper)
+            prediction = ml_predictor.predict_movement(symbol_upper)
+            set_cached_data(_cached_predictions, symbol_upper, prediction)
+            _last_system_update = datetime.now()
+            return PredictionResult(**prediction)
+        except InsufficientDataError as e:
+            error_obj = {
+                "symbol": symbol_upper,
+                "error": "insufficient_data",
+                "message": str(e),
+                "prediction": None,
+                "confidence": None
+            }
+            set_cached_data(_cached_predictions, symbol_upper, error_obj)
+            _last_system_update = datetime.now()
+            return PredictionResult(**error_obj)
+        except Exception as e:
+            logger.error(f"Error regenerating single prediction for {symbol_upper}: {e}")
+            error_obj = {
+                "symbol": symbol_upper,
+                "error": "regeneration_failed",
+                "message": str(e),
+                "prediction": None,
+                "confidence": None
+            }
+            set_cached_data(_cached_predictions, symbol_upper, error_obj)
+            _last_system_update = datetime.now()
+            return PredictionResult(**error_obj)
     except Exception as e:
         raise handle_api_error(e, f"regenerate_single_prediction for {symbol}")
 
