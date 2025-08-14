@@ -87,6 +87,9 @@ class MLPredictor:
         self.scalers = {}
         self.thresholds = {}
         
+        # Initialize thread pool for ML operations
+        self._ml_thread_pool = ThreadPoolExecutor(max_workers=self.max_workers)
+        
         # Performance optimization and caching
         self.cv_cache = {}  # Cache for cross-validation results
         self.cache_dir = os.path.join(self.data_dir, 'cache')
@@ -144,6 +147,16 @@ class MLPredictor:
             logger.info("Model type overridden to 'ensemble' based on configuration")
 
         self._validate_optional_dependencies()
+    
+    def __del__(self):
+        """Cleanup thread pool on object destruction"""
+        if hasattr(self, '_ml_thread_pool'):
+            self._ml_thread_pool.shutdown(wait=False)
+    
+    def shutdown(self):
+        """Explicitly shutdown the thread pool"""
+        if hasattr(self, '_ml_thread_pool'):
+            self._ml_thread_pool.shutdown(wait=True)
     
     def _ensure_model_directories(self) -> None:
         """Create model and scaler directories if they don't exist"""
@@ -516,27 +529,26 @@ class MLPredictor:
         # Prepare fold data
         fold_data = list(enumerate(tscv.split(X)))
         
-        # Execute parallel evaluation
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_fold = {executor.submit(evaluate_fold, fd): fd[0] for fd in fold_data}
-            
-            for future in as_completed(future_to_fold):
-                fold_idx = future_to_fold[future]
-                try:
-                    result = future.result()
-                    fold_results.append(result)
-                    scores.append(result['accuracy'])
-                    logger.debug(f"Completed fold {fold_idx} for {model_name}: accuracy={result['accuracy']:.4f}")
-                except Exception as e:
-                    logger.warning(f"Fold {fold_idx} failed for {model_name}: {e}")
-                    fold_results.append({
-                        'fold': fold_idx,
-                        'accuracy': 0.5,
-                        'precision': 0.5,
-                        'recall': 0.5,
-                        'error': str(e)
-                    })
-                    scores.append(0.5)
+        # Execute parallel evaluation using class thread pool
+        future_to_fold = {self._ml_thread_pool.submit(evaluate_fold, fd): fd[0] for fd in fold_data}
+        
+        for future in as_completed(future_to_fold):
+            fold_idx = future_to_fold[future]
+            try:
+                result = future.result()
+                fold_results.append(result)
+                scores.append(result['accuracy'])
+                logger.debug(f"Completed fold {fold_idx} for {model_name}: accuracy={result['accuracy']:.4f}")
+            except Exception as e:
+                logger.warning(f"Fold {fold_idx} failed for {model_name}: {e}")
+                fold_results.append({
+                    'fold': fold_idx,
+                    'accuracy': 0.5,
+                    'precision': 0.5,
+                    'recall': 0.5,
+                    'error': str(e)
+                })
+                scores.append(0.5)
         
         # Sort results by fold index
         fold_results.sort(key=lambda x: x['fold'])

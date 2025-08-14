@@ -22,28 +22,27 @@ class PSXDataLoader:
     PSX Data Loader for downloading and managing Pakistan Stock Exchange data.
     """
     
-    # KSE-100 stock symbols (major Pakistani stocks with .KS suffix for Yahoo Finance)
     KSE_100_SYMBOLS = [
-        'EFOODS.KS', 'NESTLE.KS', 'SEARL.KS', 'UNILEVER.KS', 'COLG.KS',
-        'NATF.KS', 'ISIL.KS', 'PSMC.KS', 'KAPCO.KS', 'HUBC.KS',
-        'KTML.KS', 'KEL.KS', 'LUCK.KS', 'MLCF.KS', 'DGKC.KS',
-        'PIOC.KS', 'CHCC.KS', 'FCCL.KS', 'KOHC.KS', 'PAEL.KS',
-        'EFERT.KS', 'FFBL.KS', 'FFC.KS', 'FATIMA.KS', 'ENGRO.KS',
-        'EPCL.KS', 'OGDC.KS', 'PPL.KS', 'POL.KS', 'MARI.KS',
-        'OGDC.KS', 'SSGC.KS', 'SNGP.KS', 'SHEL.KS', 'HASCOL.KS',
-        'HBL.KS', 'UBL.KS', 'MCB.KS', 'ABL.KS', 'BAFL.KS',
-        'FABL.KS', 'NBP.KS', 'AKBL.KS', 'BOP.KS', 'MEBL.KS',
-        'SILK.KS', 'GTYR.KS', 'CNERGY.KS', 'UNITY.KS', 'DAWH.KS',
-        'THALL.KS', 'TRG.KS', 'SYSTEMS.KS', 'TPL.KS', 'AIRLINK.KS',
-        'AVN.KS', 'LOADS.KS', 'JLICL.KS', 'JDWS.KS', 'ILP.KS',
-        'HGFA.KS', 'HINOON.KS', 'HCAR.KS', 'GLAXO.KS', 'GHGL.KS',
-        'GATM.KS', 'FHAM.KS', 'FML.KS', 'EFUG.KS', 'DCR.KS',
-        'BNWM.KS', 'BAHL.KS', 'ATRL.KS', 'ATLH.KS', 'ARPL.KS',
-        'APL.KS', 'ANL.KS', 'AICL.KS', 'AGIL.KS', 'ABOT.KS',
-        'HMB.KS', 'IBFL.KS', 'IDYM.KS', 'INDU.KS', 'INIL.KS',
-        'ISL.KS', 'LOTCHEM.KS', 'MTL.KS', 'MUREB.KS', 'PTC.KS',
-        'TOMCL.KS', 'WTL.KS', 'BYCO.KS', 'ADMM.KS', 'SCBPL.KS',
-        'PAKOXY.KS', 'PAKT.KS', 'SITC.KS', 'FECTC.KS', 'GCIL.KS'
+        'EFOODS', 'NESTLE', 'SEARL', 'UNILEVER', 'COLG',
+        'NATF', 'ISIL', 'PSMC', 'KAPCO', 'HUBC',
+        'KTML', 'KEL', 'LUCK', 'MLCF', 'DGKC',
+        'PIOC', 'CHCC', 'FCCL', 'KOHC', 'PAEL',
+        'EFERT', 'FFBL', 'FFC', 'FATIMA', 'ENGRO',
+        'EPCL', 'OGDC', 'PPL', 'POL', 'MARI',
+        'SSGC', 'SNGP', 'SHEL', 'HASCOL',
+        'HBL', 'UBL', 'MCB', 'ABL', 'BAFL',
+        'FABL', 'NBP', 'AKBL', 'BOP', 'MEBL',
+        'SILK', 'GTYR', 'CNERGY', 'UNITY', 'DAWH',
+        'THALL', 'TRG', 'SYS', 'TPL', 'AIRLINK',
+        'AVN', 'LOADS', 'JLICL', 'JDWS', 'ILP',
+        'HGFA', 'HINOON', 'HCAR', 'GLAXO', 'GHGL',
+        'GATM', 'FHAM', 'FML', 'EFUG', 'DCR',
+        'BNWM', 'BAHL', 'ATRL', 'ATLH', 'ARPL',
+        'APL', 'ANL', 'AICL', 'AGIL', 'ABOT',
+        'HMB', 'IBFL', 'IDYM', 'INDU', 'INIL',
+        'ISL', 'LOTCHEM', 'MTL', 'MUREB', 'PTC',
+        'TOMCL', 'WTL', 'ADMM', 'SCBPL',
+        'PAKOXY', 'PAKT', 'SITC', 'FECTC', 'GCIL'
     ]
     
     def __init__(self, data_dir: str = 'data', temp_dir: str = 'temp_data'):

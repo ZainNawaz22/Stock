@@ -10,6 +10,7 @@ and prediction generation.
 import sys
 import os
 import argparse
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import traceback

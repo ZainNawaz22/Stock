@@ -112,6 +112,13 @@ _background_tasks_running = set()
 # Thread pool for CPU-intensive operations
 _thread_pool = ThreadPoolExecutor(max_workers=4)
 
+# Cleanup function for thread pool
+def cleanup_thread_pool():
+    """Cleanup the global thread pool"""
+    global _thread_pool
+    if _thread_pool:
+        _thread_pool.shutdown(wait=True)
+
 # Performance settings
 MAX_SYMBOLS_PER_REQUEST = 200  # Increased to show all stocks
 MAX_DATA_POINTS_DEFAULT = 100
@@ -420,6 +427,16 @@ def handle_api_error(error: Exception, operation: str) -> HTTPException:
         return HTTPException(status_code=500, detail=f"Unexpected error in {operation}: {str(error)}")
 
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup resources on application shutdown"""
+    logger.info("Shutting down API server...")
+    cleanup_thread_pool()
+    if hasattr(ml_predictor, 'shutdown'):
+        ml_predictor.shutdown()
+    logger.info("API server shutdown complete")
+
+
 @app.get("/")
 async def root():
     """Root endpoint with API information."""
@@ -491,36 +508,34 @@ async def get_stocks(
         timeout_seconds = base_timeout + (len(symbols_to_process) // 10)  # Add time for more symbols
         max_workers = 3 if include_predictions else 6  # Adjust workers for better performance
         
-        # Use ThreadPoolExecutor for parallel processing
+        # Use global thread pool for parallel processing
         stocks_info = []
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            future_to_symbol = {
-                executor.submit(process_symbol_summary, symbol, include_predictions): symbol 
-                for symbol in symbols_to_process
-            }
-            
-            # Collect results as they complete
-            for future in as_completed(future_to_symbol, timeout=timeout_seconds):
-                try:
-                    stock_info = future.result()
-                    if stock_info.get('has_data', False):
-                        stocks_info.append(stock_info)
-                except Exception as e:
-                    symbol = future_to_symbol[future]
-                    logger.warning(f"Error processing {symbol}: {e}")
-                    stocks_info.append({
-                        "symbol": symbol,
-                        "name": symbol,
-                        "current_price": 0.0,
-                        "change": 0.0,
-                        "change_percent": 0.0,
-                        "volume": 0,
-                        "last_updated": datetime.now().isoformat(),
-                        "has_data": False,
-                        "error": "Processing timeout or error",
-                        "prediction": None
-                    })
+        future_to_symbol = {
+            _thread_pool.submit(process_symbol_summary, symbol, include_predictions): symbol 
+            for symbol in symbols_to_process
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_symbol, timeout=timeout_seconds):
+            try:
+                stock_info = future.result()
+                if stock_info.get('has_data', False):
+                    stocks_info.append(stock_info)
+            except Exception as e:
+                symbol = future_to_symbol[future]
+                logger.warning(f"Error processing {symbol}: {e}")
+                stocks_info.append({
+                    "symbol": symbol,
+                    "name": symbol,
+                    "current_price": 0.0,
+                    "change": 0.0,
+                    "change_percent": 0.0,
+                    "volume": 0,
+                    "last_updated": datetime.now().isoformat(),
+                    "has_data": False,
+                    "error": "Processing timeout or error",
+                    "prediction": None
+                })
         
         # Sort by symbol
         stocks_info.sort(key=lambda x: x['symbol'])
@@ -603,16 +618,14 @@ async def get_stock_data(
         if days and days > 0:
             stock_data = stock_data.head(days)
         
-        # Add technical indicators if requested (in background thread for large datasets)
+        # Add technical indicators if requested (using asyncio.to_thread for CPU-bound task)
         if include_indicators and len(stock_data) > 50:
-            # Use thread pool for expensive indicator calculations
-            def calculate_indicators():
-                return technical_analyzer.add_all_indicators(stock_data)
-            
             try:
-                # Run in thread pool with timeout
-                future = _thread_pool.submit(calculate_indicators)
-                stock_data = future.result(timeout=15)  # 15 second timeout
+                # Use asyncio.to_thread for CPU-bound indicator calculations
+                stock_data = await asyncio.to_thread(
+                    technical_analyzer.add_all_indicators, 
+                    stock_data
+                )
                 logger.info(f"Added technical indicators for {symbol_upper}")
             except Exception as e:
                 logger.warning(f"Error adding indicators for {symbol_upper}: {e}")
@@ -758,30 +771,28 @@ async def get_predictions(
         successful_predictions = 0
         failed_predictions = 0
         
-        # Use ThreadPoolExecutor for parallel processing
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            # Submit all prediction tasks
-            future_to_symbol = {
-                executor.submit(process_single_prediction, symbol): symbol 
-                for symbol in symbol_list
-            }
-            
-            # Collect results as they complete with timeout
-            for future in as_completed(future_to_symbol, timeout=30):  # 30 second timeout
-                try:
-                    prediction = future.result()
-                    predictions.append(prediction)
+        # Use global thread pool for parallel processing
+        future_to_symbol = {
+            _thread_pool.submit(process_single_prediction, symbol): symbol 
+            for symbol in symbol_list
+        }
+        
+        # Collect results as they complete with timeout
+        for future in as_completed(future_to_symbol, timeout=30):  # 30 second timeout
+            try:
+                prediction = future.result()
+                predictions.append(prediction)
+                
+                if prediction.get('prediction') is not None:
+                    successful_predictions += 1
+                else:
+                    failed_predictions += 1
                     
-                    if prediction.get('prediction') is not None:
-                        successful_predictions += 1
-                    else:
-                        failed_predictions += 1
-                        
-                except Exception as e:
-                    symbol = future_to_symbol[future]
-                    logger.error(f"Prediction timeout/error for {symbol}: {e}")
-                    predictions.append({
-                        "symbol": symbol,
+            except Exception as e:
+                symbol = future_to_symbol[future]
+                logger.error(f"Prediction timeout/error for {symbol}: {e}")
+                predictions.append({
+                    "symbol": symbol,
                         "error": "prediction_timeout",
                         "message": "Prediction processing timed out",
                         "prediction": None,
@@ -902,28 +913,26 @@ async def regenerate_predictions(
         successful_predictions = 0
         failed_predictions = 0
         
-        # Use ThreadPoolExecutor for parallel processing
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            # Submit all regeneration tasks
-            future_to_symbol = {
-                executor.submit(process_regeneration, symbol): symbol 
-                for symbol in symbol_list
-            }
-            
-            # Collect results as they complete with timeout
-            for future in as_completed(future_to_symbol, timeout=45):  # 45 second timeout for regeneration
-                try:
-                    prediction = future.result()
-                    predictions.append(prediction)
+        # Use global thread pool for parallel processing
+        future_to_symbol = {
+            _thread_pool.submit(process_regeneration, symbol): symbol 
+            for symbol in symbol_list
+        }
+        
+        # Collect results as they complete with timeout
+        for future in as_completed(future_to_symbol, timeout=45):  # 45 second timeout for regeneration
+            try:
+                prediction = future.result()
+                predictions.append(prediction)
+                
+                if prediction.get('prediction') is not None:
+                    successful_predictions += 1
+                else:
+                    failed_predictions += 1
                     
-                    if prediction.get('prediction') is not None:
-                        successful_predictions += 1
-                    else:
-                        failed_predictions += 1
-                        
-                except Exception as e:
-                    symbol = future_to_symbol[future]
-                    logger.error(f"Prediction regeneration timeout/error for {symbol}: {e}")
+            except Exception as e:
+                symbol = future_to_symbol[future]
+                logger.error(f"Prediction regeneration timeout/error for {symbol}: {e}")
                     predictions.append({
                         "symbol": symbol,
                         "error": "regeneration_timeout",
@@ -1170,16 +1179,15 @@ async def warmup_predictions(background_tasks: BackgroundTasks, symbols: Optiona
         try:
             logger.info(f"Starting prediction warmup for {len(symbol_list)} symbols")
             
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = [executor.submit(process_single_prediction, symbol) for symbol in symbol_list]
-                
-                completed = 0
-                for future in as_completed(futures, timeout=300):  # 5 minute timeout
-                    try:
-                        future.result()
-                        completed += 1
-                    except Exception as e:
-                        logger.warning(f"Warmup prediction failed: {e}")
+            futures = [_thread_pool.submit(process_single_prediction, symbol) for symbol in symbol_list]
+            
+            completed = 0
+            for future in as_completed(futures, timeout=300):  # 5 minute timeout
+                try:
+                    future.result()
+                    completed += 1
+                except Exception as e:
+                    logger.warning(f"Warmup prediction failed: {e}")
             
             logger.info(f"Prediction warmup completed: {completed}/{len(symbol_list)} successful")
             
@@ -1210,25 +1218,7 @@ async def warmup_predictions(background_tasks: BackgroundTasks, symbols: Optiona
         raise handle_api_error(e, "warmup_predictions")
 
 
-# Cache management endpoint
-@app.post("/api/cache/clear")
-async def clear_cache():
-    """Clear all cached data."""
-    try:
-        with _cache_lock:
-            _cached_predictions.clear()
-            _cached_stock_summaries.clear()
-            _cached_technical_indicators.clear()
-        
-        logger.info("All caches cleared")
-        
-        return {
-            "message": "All caches cleared successfully",
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        raise handle_api_error(e, "clear_cache")
+# Cache management endpoint (removed duplicate - keeping the enhanced version below)
 
 
 # Health check endpoint for load balancers
@@ -1337,7 +1327,7 @@ async def clear_cache():
 
 @app.get("/api/performance/metrics")
 @log_api_performance
-async def get_performance_metrics():
+async def get_performance_metrics_endpoint():
     """Get API performance metrics."""
     try:
         metrics = get_performance_metrics()
@@ -1347,7 +1337,7 @@ async def get_performance_metrics():
         }
         
     except Exception as e:
-        raise handle_api_error(e, "get_performance_metrics")
+        raise handle_api_error(e, "get_performance_metrics_endpoint")
 
 
 # Background task storage for tracking data loading operations
@@ -1701,14 +1691,7 @@ async def get_loader_info():
         raise handle_api_error(e, "get_loader_info")
 
 
-@app.get("/health")
-async def health_check():
-    """Simple health check endpoint for load balancers."""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0"
-    }
+# Health check endpoint (removed duplicate - keeping the enhanced version above)
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
