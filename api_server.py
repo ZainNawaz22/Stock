@@ -914,7 +914,7 @@ async def regenerate_predictions(
                         try:
                             # Use asyncio.wait_for equivalent for thread-based timeout
                             training_result = ml_predictor._train_ensemble_model_with_fallback(
-                                symbol, optimize_params=False  # Disable optimization for faster training
+                                symbol, optimize_params=True
                             )
                             training_time = time.time() - training_start
                             
@@ -1070,9 +1070,8 @@ async def regenerate_single_prediction(
                 max_training_time = 45  # 45 seconds max for single model
                 
                 try:
-                    # Disable optimization for faster training in single regeneration
                     training_result = ml_predictor._train_ensemble_model_with_fallback(
-                        symbol_upper, optimize_params=False
+                        symbol_upper, optimize_params=True
                     )
                     training_time = time.time() - training_start
                     

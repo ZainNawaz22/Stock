@@ -267,3 +267,7 @@ TimeoutError: 115 (of 115) futures unfinished
 2025-08-14 07:50:01 | ERROR    | psx_ai_advisor.operations | error               :403  | PID:31436 | Unable to handle missing values in columns: ['ROC_12', 'SMA_20', 'SMA_50', 'BB_Upper', 'BB_Middle', 'BB_Lower', 'Return_1d', 'Return_2d', 'Return_5d', 'Volatility_20d']
 2025-08-14 07:50:04 | ERROR    | psx_ai_advisor.operations | error               :403  | PID:31436 | Unable to handle missing values in columns: ['ROC_12', 'SMA_20', 'SMA_50', 'BB_Upper', 'BB_Middle', 'BB_Lower', 'Return_1d', 'Return_2d', 'Return_5d', 'Volatility_20d']
 2025-08-14 07:50:07 | ERROR    | psx_ai_advisor.operations | error               :403  | PID:31436 | Unable to handle missing values in columns: ['ROC_12', 'SMA_20', 'SMA_50', 'BB_Upper', 'BB_Middle', 'BB_Lower', 'Return_1d', 'Return_2d', 'Return_5d', 'Volatility_20d']
+2025-08-14 07:58:50 | ERROR    | yfinance                  | _fetch              :592  | PID:31436 | HTTP Error 404: 
+2025-08-14 07:58:52 | ERROR    | yfinance                  | history             :281  | PID:31436 | $UNILEVER.KA: possibly delisted; no price data found  (period=5y) (Yahoo error = "No data found, symbol may be delisted")
+2025-08-14 07:59:44 | ERROR    | yfinance                  | _fetch              :592  | PID:31436 | HTTP Error 404: 
+2025-08-14 07:59:45 | ERROR    | yfinance                  | history             :281  | PID:31436 | $UNILEVER.KA: possibly delisted; no price data found  (period=5y) (Yahoo error = "No data found, symbol may be delisted")
