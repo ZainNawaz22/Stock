@@ -34,22 +34,22 @@ pip install -r requirements.txt
 
 3. **Verify installation:**
 ```bash
-python final_performance_test.py
+python api_server.py
 ```
 
 ## 🚀 Quick Start
 
-### Start the Optimized API Server
+### Start the API Server
 ```bash
-python start_optimized_api.py
+python api_server.py
+```
+
+Or using Uvicorn directly:
+```bash
+uvicorn api_server:app --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at `http://localhost:8000` with interactive documentation at `/docs`.
-
-### Test Performance
-```bash
-python final_performance_test.py
-```
 
 ## 📡 API Endpoints
 
@@ -124,17 +124,13 @@ performance:
 
 ## 🧪 Testing
 
-### Comprehensive Performance Test
-```bash
-python final_performance_test.py
-```
+### API Testing
+You can test the API endpoints using curl or the interactive documentation at `/docs` when the server is running.
 
-Expected output:
-```
-🎉 OUTSTANDING: API performance is excellent! All issues resolved.
-✅ 100% Success Rate - All 11 endpoints working perfectly
-🎯 100% Performance Targets Met
-⚡ Average Response Time: 0.76s
+Example test:
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/api/stocks?limit=5
 ```
 
 ## 🚀 Production Deployment
@@ -144,11 +140,6 @@ Expected output:
 uvicorn api_server:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-### Using the Optimized Starter
-```bash
-python start_optimized_api.py --host 0.0.0.0 --port 8000
-```
-
 ### Docker Deployment
 ```dockerfile
 FROM python:3.9-slim
@@ -156,7 +147,7 @@ COPY . /app
 WORKDIR /app
 RUN pip install -r requirements.txt
 EXPOSE 8000
-CMD ["python", "start_optimized_api.py"]
+CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ## 📈 Monitoring
@@ -182,8 +173,7 @@ curl http://localhost:8000/api/system/status
 ```
 psx-ai-advisor/
 ├── api_server.py              # Main optimized API server
-├── start_optimized_api.py     # Server startup script
-├── final_performance_test.py  # Comprehensive testing
+├── main.py                    # Command-line interface
 ├── config.yaml               # Configuration
 ├── requirements.txt          # Dependencies
 ├── psx_ai_advisor/          # Core library
@@ -198,7 +188,7 @@ psx-ai-advisor/
 ### Adding New Features
 1. Extend core modules in `psx_ai_advisor/`
 2. Update API endpoints in `api_server.py`
-3. Add tests to `final_performance_test.py`
+3. Test endpoints using the interactive docs at `/docs`
 4. Update documentation
 
 ## 📋 Requirements
@@ -222,7 +212,6 @@ psx-ai-advisor/
 ## 📞 Support
 
 - **API Documentation**: Available at `/docs` when server is running
-- **Performance Testing**: Run `python final_performance_test.py`
 - **Configuration Help**: Check `config.yaml` comments
 - **Issues**: Create GitHub issues for bugs or feature requests
 

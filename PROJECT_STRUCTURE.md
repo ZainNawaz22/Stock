@@ -4,7 +4,6 @@
 
 ### 🚀 **Core Application Files**
 - **`api_server.py`** - Main optimized FastAPI server with performance enhancements
-- **`start_optimized_api.py`** - Optimized server startup script
 - **`main.py`** - Command-line interface for the system
 - **`config.yaml`** - Main configuration file
 
@@ -33,7 +32,6 @@
 - **`PROJECT_STRUCTURE.md`** - This file
 
 ### 🧪 **Testing & Setup**
-- **`final_performance_test.py`** - Comprehensive API performance testing
 - **`requirements.txt`** - Python dependencies
 - **`setup.py`** - Package installation setup
 
@@ -45,15 +43,15 @@
 
 ### 1. Start the API Server
 ```bash
-python start_optimized_api.py
+python api_server.py
 ```
 
-### 2. Test Performance
+Or using Uvicorn:
 ```bash
-python final_performance_test.py
+uvicorn api_server:app --host 0.0.0.0 --port 8000
 ```
 
-### 3. Use Command Line Interface
+### 2. Use Command Line Interface
 ```bash
 python main.py
 ```
