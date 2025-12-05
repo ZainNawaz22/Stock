@@ -1,13 +1,13 @@
 # PSX AI Advisor
 
-A high-performance AI-powered stock analysis and prediction system for the Pakistan Stock Exchange (PSX) with optimized REST API.
+A high-performance AI-powered stock analysis and prediction system for the Pakistan Stock Exchange (PSX) using Yahoo Finance historical data with an optimized REST API.
 
 ## 🚀 Features
 
 - **📊 Technical Analysis**: Comprehensive technical indicators (RSI, MACD, SMA, Bollinger Bands, etc.)
 - **🤖 Machine Learning**: Random Forest-based price movement prediction with time-series validation
 - **⚡ High-Performance API**: Optimized FastAPI server with parallel processing and intelligent caching
-- **📈 96 Stock Symbols**: Complete PSX data coverage with historical analysis
+- **📈 96 Stock Symbols**: PSX symbols backed by Yahoo Finance historical data
 - **🔄 Real-time Processing**: Efficient data processing with background task support
 - **📝 Comprehensive Logging**: Detailed logging and error handling
 
@@ -116,7 +116,7 @@ performance:
 
 ## 📊 Data Coverage
 
-- **96 Stock Symbols** from PSX
+- **96 Stock Symbols** from PSX via Yahoo Finance
 - **Historical Data**: 2016-2025 (227K+ records)
 - **35+ Pre-trained Models** ready for predictions
 - **16 Technical Indicators** per stock

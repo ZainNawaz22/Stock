@@ -96,13 +96,7 @@ python setup.py --environment testing
 ### Main Configuration File (`config.yaml`)
 The system uses a YAML configuration file with the following sections:
 
-#### Data Sources
-```yaml
-data_sources:
-  psx_base_url: "https://dps.psx.com.pk"
-  downloads_endpoint: "/download/closing_rates"
-  pdf_filename_pattern: "{date}.pdf"
-```
+Data is fetched from Yahoo Finance via yfinance; no additional data source configuration is required.
 
 #### Technical Indicators
 ```yaml
@@ -156,7 +150,6 @@ Override configuration using environment variables:
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `PSX_ENVIRONMENT` | Environment name | `production` |
-| `PSX_BASE_URL` | PSX base URL | `https://dps.psx.com.pk` |
 | `PSX_DATA_DIR` | Data directory | `./data` |
 | `PSX_BACKUP_DIR` | Backup directory | `./backups` |
 | `PSX_LOG_LEVEL` | Logging level | `INFO` |
@@ -276,13 +269,8 @@ After successful installation:
 
 ## Advanced Configuration
 
-### Custom Data Sources
-Modify `data_sources` section to use alternative data endpoints:
-```yaml
-data_sources:
-  psx_base_url: "https://custom-endpoint.com"
-  downloads_endpoint: "/api/data"
-```
+### Data Source
+Data is sourced exclusively from Yahoo Finance through yfinance; alternative endpoints are not required.
 
 ### Performance Tuning
 Adjust performance settings for your system:

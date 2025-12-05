@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 import logging
 from pathlib import Path
 
+from psx_ai_advisor.data_storage import normalize_symbol
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -88,9 +90,9 @@ class PSXDataLoader:
             # Reset index to make Date a column
             data.reset_index(inplace=True)
             
-            # Add symbol and company name columns
+            # Add symbol and company name columns using shared normalization
             base = symbol.replace('.KS', '').replace('.KA', '').upper()
-            hist_symbol = f"{base}_HISTORICAL_DATA"
+            hist_symbol = normalize_symbol(base)
             data['Symbol'] = hist_symbol
             data['Company_Name'] = base
             
@@ -120,12 +122,8 @@ class PSXDataLoader:
         return True
 
     def _final_file_path(self, symbol: str) -> Path:
-        s = symbol.strip().upper()
-        if s.endswith('.KS') or s.endswith('.KA'):
-            s = s.split('.')[0]
-        if not s.endswith('_HISTORICAL_DATA'):
-            s = f"{s}_HISTORICAL_DATA"
-        return self.data_dir / f"{s}.csv"
+        normalized = normalize_symbol(symbol)
+        return self.data_dir / f"{normalized}.csv"
 
     def download_single_stock(self, symbol: str, period: str = '10y') -> Optional[pd.DataFrame]:
         yahoo_symbol = self.get_yahoo_symbol(symbol)
@@ -137,7 +135,7 @@ class PSXDataLoader:
             data = self.download_single_stock(base_symbol, period)
             if not self.validate_data(data, symbol):
                 return False
-            file_symbol = f"{base_symbol}_HISTORICAL_DATA"
+            file_symbol = normalize_symbol(base_symbol)
             temp_file = self.temp_dir / f"{file_symbol}.tmp.csv"
             data.to_csv(temp_file, index=False)
             final_file = self._final_file_path(file_symbol)
@@ -222,9 +220,10 @@ class PSXDataLoader:
                 yahoo_symbol = self.get_yahoo_symbol(base_symbol)
                 data = self.download_stock_data(yahoo_symbol, period)
                 if data is not None:
-                    temp_file = self.temp_dir / f"{base_symbol}_HISTORICAL_DATA.tmp.csv"
+                    normalized = normalize_symbol(base_symbol)
+                    temp_file = self.temp_dir / f"{normalized}.tmp.csv"
                     data.to_csv(temp_file, index=False)
-                    return {'symbol': f"{base_symbol}_HISTORICAL_DATA", 'status': 'success', 'records': len(data)}
+                    return {'symbol': normalized, 'status': 'success', 'records': len(data)}
                 else:
                     return {'symbol': f"{base_symbol}_HISTORICAL_DATA", 'status': 'no_data', 'error': 'No data returned'}
             except Exception as e:

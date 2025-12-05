@@ -121,7 +121,6 @@ class ConfigLoader:
             ValueError: If required sections are missing
         """
         required_sections = [
-            'data_sources',
             'technical_indicators',
             'machine_learning',
             'storage',
@@ -134,13 +133,6 @@ class ConfigLoader:
         
         if missing_sections:
             raise ValueError(f"Missing required configuration sections: {missing_sections}")
-        
-        # Validate data_sources section
-        data_sources = config['data_sources']
-        required_data_keys = ['psx_base_url', 'downloads_endpoint']
-        missing_data_keys = [key for key in required_data_keys if key not in data_sources]
-        if missing_data_keys:
-            raise ValueError(f"Missing required data_sources keys: {missing_data_keys}")
         
         # Validate technical_indicators section
         tech_indicators = config['technical_indicators']
@@ -178,11 +170,6 @@ class ConfigLoader:
             Dict[str, Any]: Default configuration
         """
         return {
-            "data_sources": {
-                "psx_base_url": "https://dps.psx.com.pk",
-                "downloads_endpoint": "/download/closing_rates",
-                "pdf_filename_pattern": "{date}.pdf"
-            },
             "technical_indicators": {
                 "sma_periods": [50, 200],
                 "rsi_period": 14,
@@ -371,7 +358,6 @@ class ConfigLoader:
         """
         # Define environment variable mappings
         env_mappings = {
-            'PSX_BASE_URL': ('data_sources', 'psx_base_url'),
             'PSX_DATA_DIR': ('storage', 'data_directory'),
             'PSX_BACKUP_DIR': ('storage', 'backup_directory'),
             'PSX_LOG_LEVEL': ('logging', 'level'),

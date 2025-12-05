@@ -15,6 +15,23 @@ from .exceptions import (
 from .logging_config import get_logger, log_exception, create_operation_logger
 
 
+def normalize_symbol(symbol: str) -> str:
+    """Normalize a symbol to the _HISTORICAL_DATA CSV naming convention.
+
+    Ensures uppercase, strips common market suffixes (.KS/.KA), and appends
+    the historical suffix when missing. Kept as a module-level helper so other
+    modules (e.g., data loaders) can reuse the exact same logic.
+    """
+    if symbol is None:
+        return ""
+    s = str(symbol).strip().upper()
+    if s.endswith('.KS') or s.endswith('.KA'):
+        s = s.split('.')[0]
+    if not s.endswith('_HISTORICAL_DATA'):
+        s = f"{s}_HISTORICAL_DATA"
+    return s
+
+
 class DataStorage:
     """
     Manages persistent storage of stock data in CSV format
@@ -57,18 +74,8 @@ class DataStorage:
             raise DataStorageError(f"Failed to create directories: {e}")
 
     def _normalize_symbol(self, symbol: str) -> str:
-        """Normalize symbol to use historical data naming convention.
-        Ensures uppercase and appends _HISTORICAL_DATA suffix if missing.
-        Also strips common market suffixes like .KS/.KA from inputs.
-        """
-        if symbol is None:
-            return ""
-        s = str(symbol).strip().upper()
-        if s.endswith('.KS') or s.endswith('.KA'):
-            s = s.split('.')[0]
-        if not s.endswith('_HISTORICAL_DATA'):
-            s = f"{s}_HISTORICAL_DATA"
-        return s
+        """Instance wrapper around the shared symbol normalizer."""
+        return normalize_symbol(symbol)
     
     def _get_csv_path(self, symbol: str) -> str:
         """

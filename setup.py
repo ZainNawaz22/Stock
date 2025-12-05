@@ -35,11 +35,6 @@ class PSXAdvisorSetup:
             Dict[str, Any]: Default configuration dictionary
         """
         base_config = {
-            "data_sources": {
-                "psx_base_url": "https://dps.psx.com.pk",
-                "downloads_endpoint": "/download/closing_rates",
-                "pdf_filename_pattern": "{date}.pdf"
-            },
             "technical_indicators": {
                 "sma_periods": [50, 200],
                 "rsi_period": 14,

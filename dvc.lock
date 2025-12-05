@@ -17,7 +17,6 @@ stages:
       size: 2712
     params:
       config.yaml:
-        data_sources.psx_base_url: https://dps.psx.com.pk
         storage.data_directory: data
     outs:
     - path: data
