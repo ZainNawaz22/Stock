@@ -1,0 +1,78 @@
+schema: '2.0'
+stages:
+  fetch_data:
+    cmd: python update_all_stocks.py || exit 0
+    deps:
+    - path: psx_ai_advisor/data_acquisition.py
+      hash: md5
+      md5: 4f82822503a6df5fff2746c0e55f4387
+      size: 24436
+    - path: psx_ai_advisor/data_storage.py
+      hash: md5
+      md5: d30982beea5b4752a00e06ce13c35bbf
+      size: 24489
+    - path: update_all_stocks.py
+      hash: md5
+      md5: bf53f188d90c3958d47f45b987ada2c7
+      size: 2712
+    params:
+      config.yaml:
+        data_sources.psx_base_url: https://dps.psx.com.pk
+        storage.data_directory: data
+    outs:
+    - path: data
+      hash: md5
+      md5: 96ed9ec8e018ec3f936d7046f7474b35.dir
+      size: 247048758
+      nfiles: 371
+  train_models:
+    cmd: python train_models.py --all --model-type ensemble --optimize
+    deps:
+    - path: data
+      hash: md5
+      md5: 96ed9ec8e018ec3f936d7046f7474b35.dir
+      size: 247048758
+      nfiles: 371
+    - path: psx_ai_advisor/ml_predictor.py
+      hash: md5
+      md5: 41bf11ceef83549def79434f40fb1091
+      size: 239871
+    - path: psx_ai_advisor/technical_analysis.py
+      hash: md5
+      md5: c950397da38bae50f69c407db04cdfd9
+      size: 22629
+    - path: train_models.py
+      hash: md5
+      md5: 5ecf6674c15cd1fc940f32add224c060
+      size: 3292
+    params:
+      config.yaml:
+        machine_learning.ensemble:
+          models:
+          - random_forest
+          - xgboost
+          voting: soft
+          optimize_weights: true
+          fallback_strategy: best_individual
+        machine_learning.model_type: ensemble
+        machine_learning.n_estimators: 100
+  predict:
+    cmd: python main.py --no-display
+    deps:
+    - path: data
+      hash: md5
+      md5: 96ed9ec8e018ec3f936d7046f7474b35.dir
+      size: 247048758
+      nfiles: 371
+    - path: main.py
+      hash: md5
+      md5: 3ba62de14e380de393eb3741814b5677
+      size: 23147
+    - path: psx_ai_advisor/ml_predictor.py
+      hash: md5
+      md5: 41bf11ceef83549def79434f40fb1091
+      size: 239871
+    - path: psx_ai_advisor/technical_analysis.py
+      hash: md5
+      md5: c950397da38bae50f69c407db04cdfd9
+      size: 22629

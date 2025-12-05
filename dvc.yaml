@@ -1,0 +1,36 @@
+stages:
+  fetch_data:
+    cmd: python update_all_stocks.py || exit 0
+    deps:
+      - update_all_stocks.py
+      - psx_ai_advisor/data_acquisition.py
+      - psx_ai_advisor/data_storage.py
+    outs:
+      - data:
+          cache: true
+          persist: true
+    params:
+      - config.yaml:
+        - data_sources.psx_base_url
+        - storage.data_directory
+
+  train_models:
+    cmd: python train_models.py --all --model-type ensemble --optimize
+    deps:
+      - train_models.py
+      - psx_ai_advisor/ml_predictor.py
+      - psx_ai_advisor/technical_analysis.py
+      - data
+    params:
+      - config.yaml:
+        - machine_learning.model_type
+        - machine_learning.n_estimators
+        - machine_learning.ensemble
+
+  predict:
+    cmd: python main.py --no-display
+    deps:
+      - main.py
+      - psx_ai_advisor/ml_predictor.py
+      - psx_ai_advisor/technical_analysis.py
+      - data

@@ -1,4 +1,10 @@
 [core]
     remote = origin
+    autostage = true
 ['remote "origin"']
     url = https://dagshub.com/ZainNawaz22/Stock.dvc
+['remote "local"']
+    url = /tmp/dvc-storage
+[cache]
+    type = symlink,copy
+    shared = group

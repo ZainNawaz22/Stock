@@ -9,3 +9,5 @@ uvicorn>=0.24.0
 yfinance>=0.2.18
 xgboost>=1.6.0
 scipy>=1.7.0
+dvc[s3,gs]>=3.50.0
+dvclive>=3.0.0
