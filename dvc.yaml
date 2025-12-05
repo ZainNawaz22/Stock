@@ -3,7 +3,7 @@ stages:
     cmd: python update_all_stocks.py || exit 0
     deps:
       - update_all_stocks.py
-      - psx_ai_advisor/data_acquisition.py
+      - psx_ai_advisor/data_loader.py
       - psx_ai_advisor/data_storage.py
     outs:
       - data:
@@ -27,10 +27,3 @@ stages:
         - machine_learning.n_estimators
         - machine_learning.ensemble
 
-  predict:
-    cmd: python main.py --no-display
-    deps:
-      - main.py
-      - psx_ai_advisor/ml_predictor.py
-      - psx_ai_advisor/technical_analysis.py
-      - data

@@ -27,7 +27,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from psx_ai_advisor.data_storage import DataStorage
 from psx_ai_advisor.ml_predictor import MLPredictor
 from psx_ai_advisor.technical_analysis import TechnicalAnalyzer
-from psx_ai_advisor.data_acquisition import PSXDataAcquisition
 from psx_ai_advisor.data_loader import PSXDataLoader
 from psx_ai_advisor.config_loader import get_section, get_value
 from psx_ai_advisor.logging_config import get_logger
@@ -97,7 +96,6 @@ app.add_middleware(APIMonitoringMiddleware)
 data_storage = DataStorage()
 ml_predictor = MLPredictor()
 technical_analyzer = TechnicalAnalyzer()
-data_acquisition = PSXDataAcquisition()
 
 # Global variables for caching and performance optimization
 _api_start_time = None

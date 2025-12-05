@@ -288,11 +288,11 @@ class PSXAdvisorSetup:
     def _check_project_structure(self) -> bool:
         """Check if required project files exist"""
         required_files = [
-            "main.py",
+            "api_server.py",
             "requirements.txt",
             "psx_ai_advisor/__init__.py",
             "psx_ai_advisor/config_loader.py",
-            "psx_ai_advisor/data_acquisition.py",
+            "psx_ai_advisor/data_loader.py",
             "psx_ai_advisor/technical_analysis.py",
             "psx_ai_advisor/data_storage.py",
             "psx_ai_advisor/ml_predictor.py"
@@ -394,8 +394,8 @@ class PSXAdvisorSetup:
         print("✓ PSX AI Advisor setup completed successfully!")
         print("\nNext steps:")
         print("1. Review configuration in config.yaml")
-        print("2. Run: python main.py --help")
-        print("3. Start with: python main.py")
+        print("2. Start the API server: python api_server.py")
+        print("3. Access the API at: http://localhost:8000/docs")
         
         return True
 
